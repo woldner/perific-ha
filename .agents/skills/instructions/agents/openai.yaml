@@ -1,0 +1,7 @@
+interface:
+  display_name: "Instructions"
+  short_description: "Compact durable instructional guidance"
+  default_prompt: "Use $instructions to compact durable instructional guidance after authority placement is clear."
+
+policy:
+  allow_implicit_invocation: true

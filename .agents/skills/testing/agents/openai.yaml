@@ -1,0 +1,7 @@
+interface:
+  display_name: "Testing"
+  short_description: "Choose focused high-signal validation"
+  default_prompt: "Use $testing to choose the smallest high-signal proof for the explicit contract before adding, widening, narrowing, or removing tests, smoke tests, or validation."
+
+policy:
+  allow_implicit_invocation: true

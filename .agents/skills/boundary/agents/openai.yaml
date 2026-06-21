@@ -1,0 +1,7 @@
+interface:
+  display_name: "Boundary"
+  short_description: "Place changes in the owning surface"
+  default_prompt: "Use $boundary to decide the source-backed owner before changing behavior, styling, data, validation, docs, generated output, automation, or review workflow."
+
+policy:
+  allow_implicit_invocation: true

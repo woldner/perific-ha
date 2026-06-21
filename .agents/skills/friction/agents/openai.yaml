@@ -1,0 +1,7 @@
+interface:
+  display_name: "Friction"
+  short_description: "Route observed workflow friction"
+  default_prompt: "Use $friction to classify observed workflow friction and choose the smallest useful owner."
+
+policy:
+  allow_implicit_invocation: true

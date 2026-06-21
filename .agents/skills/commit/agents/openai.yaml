@@ -1,0 +1,7 @@
+interface:
+  display_name: "Commit"
+  short_description: "Checkpoint coherent repo work"
+  default_prompt: "Use $commit to decide commit cadence and create a safe local Conventional Commit for coherent validated work."
+
+policy:
+  allow_implicit_invocation: true

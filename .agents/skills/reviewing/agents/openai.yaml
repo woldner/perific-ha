@@ -1,0 +1,7 @@
+interface:
+  display_name: "Reviewing"
+  short_description: "Choose focused review timing and scope"
+  default_prompt: "Use $reviewing to decide whether to review now or wait for a named gate, then choose the smallest source-backed review target and reject speculative findings."
+
+policy:
+  allow_implicit_invocation: true
