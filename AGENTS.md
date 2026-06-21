@@ -19,6 +19,16 @@ Prefer the standard Home Assistant shape: `custom_components/perific`, config
 flow, async API client, `DataUpdateCoordinator`, device/entity registry
 metadata, diagnostics, translations, and focused tests.
 
+Use `.python-version` for the default development interpreter and
+`pyproject.toml` for the supported Python range. Use `uv run ruff format
+--check .` and `uv run ruff check .` for Python formatting and linting. Ruff
+uses `select = ["ALL"]` with explicit ignores for formatter conflicts and
+non-correctness documentation policy. Ruff checks intentionally exclude
+`.agents/`.
+
+Use `uv run pre-commit install` to enable local Git hooks. The hooks must call
+repo-owned `uv run` checks instead of separate global linter installations.
+
 Expose observable meter facts with explicit units. Grid power for energy
 management must be watts unless a consuming interface documents another unit.
 
@@ -28,5 +38,5 @@ Home Assistant installation access, or external endorsement is required.
 Do not call the integration official, certified, or supported by Perific/Enegic
 unless that endorsement is documented by the vendor.
 
-Before committing, run the smallest checks that prove the touched contract and
-scan staged changes for secrets.
+Before committing, run `uv run pre-commit run --all-files` plus any focused
+tests that prove the touched contract, then scan staged changes for secrets.

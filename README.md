@@ -23,3 +23,34 @@ for local energy management use cases such as evcc.
 
 The repository currently contains setup scaffolding only. Installation
 instructions will be added after the first working integration version exists.
+
+## Development
+
+This project uses `uv` for the Python environment and Ruff for formatting and
+linting. The default development Python is declared in `.python-version`; the
+supported Python range is declared in `pyproject.toml`.
+
+```sh
+uv run python --version
+uv run ruff format --check .
+uv run ruff check .
+```
+
+Install the local Git hooks once per clone:
+
+```sh
+uv run pre-commit install
+```
+
+Run the full local hook set before pushing or asking for review:
+
+```sh
+uv run pre-commit run --all-files
+```
+
+Apply safe Ruff fixes locally with:
+
+```sh
+uv run ruff check --fix .
+uv run ruff format .
+```
