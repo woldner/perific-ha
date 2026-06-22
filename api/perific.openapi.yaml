@@ -1,0 +1,206 @@
+openapi: 3.1.0
+info:
+  title: Perific/Enegic cloud API discovery contract
+  version: 0.0.1
+  summary: Clean-room API contract scaffold for the Perific Home Assistant integration.
+  description: >
+    This document records independently observed Perific/Enegic cloud API facts
+    for perific-ha. It is intentionally incomplete. Request and response schemas
+    stay broad until verified from vendor documentation or user-approved,
+    redacted live traffic.
+  x-clean-room:
+    policy: >
+      Community integrations and OpenAPI files are research checklists only.
+      Do not copy their schemas, generated clients, fixtures, mappings, or prose.
+    schema_gate: >
+      Narrow schemas require vendor documentation or redacted live responses.
+servers:
+  - url: https://api.enegic.com
+    description: Public Enegic cloud API host observed during discovery.
+tags:
+  - name: authentication
+    description: Account/session endpoints. Runtime auth is not implemented yet.
+  - name: telemetry
+    description: Read-only meter telemetry endpoints for Home Assistant.
+paths:
+  /createtoken:
+    put:
+      operationId: createToken
+      tags:
+        - authentication
+      summary: Create an account session token.
+      description: >
+        Public method discovery shows this route accepts PUT. The request body,
+        response body, token lifetime, token storage rules, and exact header
+        usage require credentialed verification before runtime implementation.
+      x-perific-verification:
+        status: public_method_observed
+        observed_at: "2026-06-22"
+        observed:
+          - "OPTIONS /createtoken -> Allow: PUT"
+          - "GET /createtoken -> 405"
+        pending:
+          - Request body schema
+          - Success response schema
+          - Failure response schema
+          - Token lifetime and refresh behavior
+          - Home Assistant auth-flow approval
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnverifiedJsonObject"
+      responses:
+        "200":
+          description: Token response. Schema pending credentialed verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnverifiedJsonObject"
+        "4XX":
+          description: Client or authentication error. Schema pending verification.
+  /getaccountoverview:
+    get:
+      operationId: getAccountOverview
+      tags:
+        - telemetry
+      summary: Get account-level meter overview data.
+      description: >
+        Public method discovery shows this route accepts GET and PUT, and GET
+        without credentials returns 401. Runtime use and schema details require
+        credentialed verification.
+      x-perific-verification:
+        status: public_method_observed
+        observed_at: "2026-06-22"
+        observed:
+          - "OPTIONS /getaccountoverview -> Allow: GET, PUT"
+          - "GET /getaccountoverview -> 401"
+        pending:
+          - Authentication mechanism
+          - Account/site/device identifiers
+          - Success response schema
+          - Whether GET or PUT is the supported read path for Home Assistant
+      responses:
+        "200":
+          description: Account overview response. Schema pending verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnverifiedJsonObject"
+        "401":
+          description: Authentication required. Body schema pending verification.
+        "4XX":
+          description: Client or authentication error. Schema pending verification.
+    put:
+      operationId: putAccountOverview
+      tags:
+        - telemetry
+      summary: Get account-level meter overview data through the observed PUT route.
+      description: >
+        Public method discovery shows this route accepts PUT. Runtime use and
+        schema details require credentialed verification before this operation
+        can be treated as a supported Home Assistant read path.
+      x-perific-verification:
+        status: public_method_observed
+        observed_at: "2026-06-22"
+        observed:
+          - "OPTIONS /getaccountoverview -> Allow: GET, PUT"
+        pending:
+          - Whether PUT is a supported read path for Home Assistant
+          - Request body schema
+          - Success response schema
+          - Error response schema
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnverifiedJsonObject"
+      responses:
+        "200":
+          description: Account overview response. Schema pending verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnverifiedJsonObject"
+        "4XX":
+          description: Client or authentication error. Schema pending verification.
+  /getlatestpackets:
+    put:
+      operationId: getLatestPackets
+      tags:
+        - telemetry
+      summary: Get latest meter packets.
+      description: >
+        Public method discovery shows this route accepts PUT. It is the expected
+        first telemetry candidate for whole-home grid power, but the request
+        body, response body, and watt calculation/source field require
+        credentialed verification before Home Assistant entities are created.
+      x-perific-verification:
+        status: public_method_observed
+        observed_at: "2026-06-22"
+        observed:
+          - "OPTIONS /getlatestpackets -> Allow: PUT"
+          - "GET /getlatestpackets -> 405"
+        pending:
+          - Request body schema
+          - Meter packet response schema
+          - Grid power source field and unit
+          - Timestamp and staleness semantics
+          - Error response schema
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnverifiedJsonObject"
+      responses:
+        "200":
+          description: Latest packet response. Schema pending verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnverifiedJsonObject"
+        "4XX":
+          description: Client or authentication error. Schema pending verification.
+  /getreporterssettingsforuser:
+    get:
+      operationId: getReportersSettingsForUser
+      tags:
+        - telemetry
+      summary: Get reporter settings for the authenticated user.
+      description: >
+        Public method discovery shows this route accepts GET and requires
+        authentication. It is tracked as a possible metadata endpoint, not as
+        part of the first Home Assistant telemetry path.
+      x-perific-verification:
+        status: public_method_observed_metadata_candidate
+        observed_at: "2026-06-22"
+        observed:
+          - "OPTIONS /getreporterssettingsforuser -> Allow: GET"
+          - "GET /getreporterssettingsforuser -> 401"
+        pending:
+          - Whether Home Assistant needs this endpoint
+          - Success response schema
+          - Stable identifiers safe for unique IDs after redaction
+      responses:
+        "200":
+          description: Reporter settings response. Schema pending verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnverifiedJsonObject"
+        "401":
+          description: Authentication required. Body schema pending verification.
+        "4XX":
+          description: Client or authentication error. Schema pending verification.
+components:
+  schemas:
+    UnverifiedJsonObject:
+      type: object
+      description: >
+        Placeholder for JSON payloads whose shape is not yet source-backed.
+        Replace with narrow schemas only after vendor documentation or
+        user-approved, redacted live responses prove the fields.
+      additionalProperties: true

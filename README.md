@@ -21,8 +21,13 @@ for local energy management use cases such as evcc.
 
 ## Current State
 
-The repository currently contains setup scaffolding only. Installation
-instructions will be added after the first working integration version exists.
+The repository currently contains setup and API discovery scaffolding only.
+Installation instructions will be added after the first working integration
+version exists.
+
+API discovery is tracked in [`api/perific.openapi.yaml`](api/perific.openapi.yaml)
+and [`docs/api-verification.md`](docs/api-verification.md). These files are
+clean-room project artifacts, not vendor documentation.
 
 ## Development
 
