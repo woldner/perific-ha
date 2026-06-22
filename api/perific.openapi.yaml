@@ -19,7 +19,7 @@ servers:
     description: Public Enegic cloud API host observed during discovery.
 tags:
   - name: authentication
-    description: Account/session endpoints. Runtime auth is not implemented yet.
+    description: Account/session endpoints.
   - name: telemetry
     description: Read-only meter telemetry endpoints for Home Assistant.
 paths:
@@ -30,34 +30,32 @@ paths:
         - authentication
       summary: Create an account session token.
       description: >
-        Public method discovery shows this route accepts PUT. The request body,
-        response body, token lifetime, token storage rules, and exact header
-        usage require credentialed verification before runtime implementation.
+        Credentialed verification shows this route accepts a username and
+        password and returns a session token. Home Assistant stores the returned
+        token in the config entry and does not store the password.
       x-perific-verification:
-        status: public_method_observed
+        status: credentialed_verified
         observed_at: "2026-06-22"
         observed:
           - "OPTIONS /createtoken -> Allow: PUT"
           - "GET /createtoken -> 405"
+          - "PUT /createtoken with username/password -> 200"
         pending:
-          - Request body schema
-          - Success response schema
           - Failure response schema
-          - Token lifetime and refresh behavior
-          - Home Assistant auth-flow approval
+          - Token refresh endpoint, if any
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UnverifiedJsonObject"
+              $ref: "#/components/schemas/CreateTokenRequest"
       responses:
         "200":
-          description: Token response. Schema pending credentialed verification.
+          description: Token response.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UnverifiedJsonObject"
+                $ref: "#/components/schemas/CreateTokenResponse"
         "4XX":
           description: Client or authentication error. Schema pending verification.
   /getaccountoverview:
@@ -71,16 +69,16 @@ paths:
         without credentials returns 401. Runtime use and schema details require
         credentialed verification.
       x-perific-verification:
-        status: public_method_observed
+        status: credentialed_verified
         observed_at: "2026-06-22"
         observed:
           - "OPTIONS /getaccountoverview -> Allow: GET, PUT"
           - "GET /getaccountoverview -> 401"
+          - "GET /getaccountoverview with X-Authorization -> 200"
+          - "GET /getaccountoverview with invalid X-Authorization -> 401"
         pending:
-          - Authentication mechanism
           - Account/site/device identifiers
           - Success response schema
-          - Whether GET or PUT is the supported read path for Home Assistant
       responses:
         "200":
           description: Account overview response. Schema pending verification.
@@ -102,13 +100,13 @@ paths:
         schema details require credentialed verification before this operation
         can be treated as a supported Home Assistant read path.
       x-perific-verification:
-        status: public_method_observed
+        status: credentialed_verified
         observed_at: "2026-06-22"
         observed:
           - "OPTIONS /getaccountoverview -> Allow: GET, PUT"
+          - "PUT /getaccountoverview with X-Authorization and empty body -> 200"
         pending:
           - Whether PUT is a supported read path for Home Assistant
-          - Request body schema
           - Success response schema
           - Error response schema
       requestBody:
@@ -133,20 +131,20 @@ paths:
         - telemetry
       summary: Get latest meter packets.
       description: >
-        Public method discovery shows this route accepts PUT. It is the expected
-        first telemetry candidate for whole-home grid power, but the request
-        body, response body, and watt calculation/source field require
-        credentialed verification before Home Assistant entities are created.
+        Credentialed verification shows this route accepts PUT with an empty
+        JSON body and returns latest packet data. The first Home Assistant
+        sensor uses PhaseMinute.data hwi minus hwo as net grid power in watts.
       x-perific-verification:
-        status: public_method_observed
+        status: credentialed_verified
         observed_at: "2026-06-22"
         observed:
           - "OPTIONS /getlatestpackets -> Allow: PUT"
           - "GET /getlatestpackets -> 405"
+          - "PUT /getlatestpackets with X-Authorization and empty body -> 200"
+          - "PUT /getlatestpackets with invalid X-Authorization -> 401"
+          - "PhaseMinute.data includes numeric hwi and hwo fields"
         pending:
-          - Request body schema
-          - Meter packet response schema
-          - Grid power source field and unit
+          - Vendor-documented hwi/hwo field semantics
           - Timestamp and staleness semantics
           - Error response schema
       requestBody:
@@ -157,11 +155,11 @@ paths:
               $ref: "#/components/schemas/UnverifiedJsonObject"
       responses:
         "200":
-          description: Latest packet response. Schema pending verification.
+          description: Latest packet response.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UnverifiedJsonObject"
+                $ref: "#/components/schemas/LatestPacketsResponse"
         "4XX":
           description: Client or authentication error. Schema pending verification.
   /getreporterssettingsforuser:
@@ -197,6 +195,90 @@ paths:
           description: Client or authentication error. Schema pending verification.
 components:
   schemas:
+    CreateTokenRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+      additionalProperties: false
+    CreateTokenResponse:
+      type: object
+      required:
+        - TokenInfo
+        - User
+      properties:
+        TokenInfo:
+          type: object
+          required:
+            - Token
+            - ValidTo
+          properties:
+            Created:
+              type: string
+            Token:
+              type: string
+            ValidTo:
+              type: string
+          additionalProperties: true
+        User:
+          type: object
+          required:
+            - UserId
+          properties:
+            UserId:
+              oneOf:
+                - type: integer
+                - type: string
+          additionalProperties: true
+      additionalProperties: true
+    LatestPacketsResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/LatestPacket"
+    LatestPacket:
+      type: object
+      required:
+        - ItemId
+        - LatestPackets
+      properties:
+        ItemId:
+          oneOf:
+            - type: integer
+            - type: string
+        LatestPackets:
+          type: object
+          required:
+            - PhaseMinute
+          properties:
+            PhaseMinute:
+              $ref: "#/components/schemas/PhaseMinutePacket"
+          additionalProperties: true
+      additionalProperties: true
+    PhaseMinutePacket:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - hwi
+            - hwo
+          properties:
+            hwi:
+              type: number
+            hwo:
+              type: number
+          additionalProperties: true
+        ts:
+          type: integer
+      additionalProperties: true
     UnverifiedJsonObject:
       type: object
       description: >

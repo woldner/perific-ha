@@ -17,6 +17,14 @@ user-approved, redacted live traffic.
   authority and their specs, clients, models, mappings, fixtures, and prose must
   not be copied into this repository.
 
+## Schema Maintenance
+
+Treat [`api/perific.openapi.yaml`](../api/perific.openapi.yaml) as the current
+verified contract, not a fixed upstream spec. When live schema-only evidence
+shows a better endpoint, field, type, or parser boundary, update the spec, code,
+and tests to match that evidence. Record only redacted field names, types, and
+behavior; keep raw responses out of git.
+
 ## Current Public Observations
 
 Observed on 2026-06-22 against `https://api.enegic.com`.
@@ -31,11 +39,10 @@ Observed on 2026-06-22 against `https://api.enegic.com`.
 | `/getlatestpackets` | `OPTIONS` allows `PUT`; `GET` returns `405`. | Route and method only. Schema pending. |
 | `/getreporterssettingsforuser` | `OPTIONS` allows `GET`; `GET` returns `401`. | Metadata candidate only. Schema pending. |
 
-The local Python TLS trust path failed certificate verification for the public
-probe with `Basic Constraints of CA cert not marked critical`. The observations
-above were collected without credentials and with certificate verification
-disabled for the manual probe only. Runtime code must not disable TLS
-verification.
+The local Python TLS trust path may fail on enterprise TLS inspection chains.
+Treat that as a local discovery environment issue: disconnect the VPN, repair
+the local trust path, or use a verification-preserving local probe workaround.
+Runtime code must keep normal TLS certificate verification enabled.
 
 Repeat public route/method checks with:
 
@@ -49,6 +56,22 @@ credentials, request bodies, tokens, or private identifiers.
 Keep this probe out of pre-commit and default automated tests; run it only as
 an explicit live check.
 
+## Credentialed Observations
+
+Observed on 2026-06-22 with user-approved local credentials. No tokens,
+credentials, private identifiers, raw payloads, or meter values were committed.
+
+| Endpoint | Observation | Contract status |
+| --- | --- | --- |
+| `/createtoken` | `PUT` with username and password returns a token object with token creation and validity fields. | Native token auth verified. |
+| `/getaccountoverview` | `GET` and `PUT {}` with `X-Authorization` return `200`; an invalid token returns `401`. | Token header verified. Schema still broad. |
+| `/getlatestpackets` | `PUT {}` with `X-Authorization` returns latest packet data; an invalid token returns `401`. | First telemetry schema verified for selected fields. |
+
+Latest packet data includes a `PhaseMinute.data` object with `hwi` and `hwo`
+numeric fields. The first sensor computes net grid power as `hwi - hwo` watts.
+This field meaning is inferred from verified live field names and must be
+rechecked against vendor documentation if it becomes available.
+
 ## First Slice Boundary
 
 The first implementation slice owns:
@@ -58,12 +81,11 @@ The first implementation slice owns:
 - explicit pending fields for request bodies, response bodies, auth behavior,
   identifiers, units, and staleness semantics.
 
+It now also owns the first Home Assistant config-flow implementation, native
+token exchange, reauth path, and one read-only grid power sensor.
+
 It does not own:
 
-- Home Assistant config flows;
-- native Perific token login;
-- generated clients;
-- sensor entities;
 - control, pricing, history, or load-balancing endpoints;
 - copied community schemas or generated code.
 

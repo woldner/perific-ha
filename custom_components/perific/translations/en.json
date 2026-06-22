@@ -1,0 +1,38 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This Perific account is already configured.",
+      "reauth_successful": "Reauthentication was successful.",
+      "wrong_account": "The credentials belong to a different Perific account."
+    },
+    "error": {
+      "cannot_connect": "Could not connect to Perific.",
+      "invalid_auth": "Invalid authentication.",
+      "no_meter": "No supported Perific meter data was found."
+    },
+    "step": {
+      "reauth_confirm": {
+        "data": {
+          "password": "Password",
+          "username": "Email or username"
+        },
+        "description": "Enter your Perific credentials again.",
+        "title": "Reauthenticate Perific"
+      },
+      "user": {
+        "data": {
+          "password": "Password",
+          "username": "Email or username"
+        },
+        "title": "Connect Perific"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "grid_power": {
+        "name": "Grid power"
+      }
+    }
+  }
+}

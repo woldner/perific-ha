@@ -21,9 +21,10 @@ for local energy management use cases such as evcc.
 
 ## Current State
 
-The repository currently contains setup and API discovery scaffolding only.
-Installation instructions will be added after the first working integration
-version exists.
+The repository contains the first Home Assistant integration slice: config
+flow, native Perific token exchange, config-entry reauth, coordinated polling,
+and one grid power sensor. The integration is still pre-release while the API
+contract and meter field meanings are verified against live or vendor evidence.
 
 API discovery is tracked in [`api/perific.openapi.yaml`](api/perific.openapi.yaml)
 and [`docs/api-verification.md`](docs/api-verification.md). These files are
@@ -39,6 +40,7 @@ supported Python range is declared in `pyproject.toml`.
 uv run python --version
 uv run ruff format --check .
 uv run ruff check .
+uv run pytest
 ```
 
 Install the local Git hooks once per clone:

@@ -30,11 +30,39 @@ preview = true
 [tool.ruff.lint.isort]
 known-first-party = ["custom_components.perific"]
 
+[tool.ruff.lint.per-file-ignores]
+"custom_components/perific/__init__.py" = [
+  "PLC0415", # Keep Home Assistant imports lazy so parser tests do not require HA.
+  "RUF067", # Home Assistant integrations require setup hooks in __init__.py.
+]
+"custom_components/perific/const.py" = [
+  "S105", # These are config-entry key names, not embedded secret values.
+]
+"custom_components/perific/diagnostics.py" = [
+  "RUF029", # Home Assistant diagnostics hooks are async by contract.
+]
+"custom_components/perific/sensor.py" = [
+  "RUF029", # Home Assistant platform setup hooks are async by contract.
+]
+"tests/**/*.py" = [
+  "S101", # Pytest assertions are the intended test style.
+  "S106", # Redacted token strings in tests are not real credentials.
+]
+
 [tool.ruff.format]
 docstring-code-format = true
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+
 [dependency-groups]
 dev = [
+    "aiohttp>=3.13.5,<3.14",
+    "homeassistant>=2026.6.4",
     "pre-commit>=4.6.0",
+    "pytest>=9.0.3,<9.1",
+    "pytest-homeassistant-custom-component>=0.13.340",
     "ruff>=0.15.18",
 ]
