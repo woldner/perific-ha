@@ -1,0 +1,32 @@
+minimum_pre_commit_version: "4.6.0"
+default_install_hook_types:
+  - pre-commit
+
+repos:
+  - repo: local
+    hooks:
+      - id: uv-lock-check
+        name: uv lock is current
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: ruff-format-check
+        name: ruff format
+        entry: uv run ruff format --check .
+        language: system
+        pass_filenames: false
+
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check .
+        language: system
+        pass_filenames: false
+
+      - id: git-diff-check
+        name: git diff whitespace
+        entry: git diff --check --cached
+        language: system
+        pass_filenames: false
+        always_run: true

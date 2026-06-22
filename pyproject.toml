@@ -1,0 +1,40 @@
+[project]
+name = "perific-ha"
+version = "0.0.0"
+description = "Home Assistant custom integration for Perific/Enegic meters."
+readme = "README.md"
+requires-python = ">=3.14.2"
+license = "Apache-2.0"
+dependencies = []
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+extend-exclude = [".agents"]
+
+[tool.ruff.lint]
+select = [
+  "ALL",
+]
+ignore = [
+  "COM812", # Conflicts with the formatter.
+  "CPY001", # This project does not use per-file copyright headers.
+  "D", # Docstring coverage is not a correctness gate for this integration.
+  "FIX002", # TODO comments are allowed when they do not mask behavior.
+  "ISC001", # Conflicts with the formatter.
+  "TD002", # TODO author tags do not add useful ownership here.
+  "TD003", # TODO issue links are not required for local exploratory work.
+]
+preview = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.perific"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.18",
+]
