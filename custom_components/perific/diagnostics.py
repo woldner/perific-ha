@@ -33,4 +33,11 @@ async def async_get_config_entry_diagnostics(
     _hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> dict[str, Any]:
-    return {"entry": async_redact_data(dict(entry.data), TO_REDACT)}
+    diagnostics: dict[str, Any] = {
+        "entry": async_redact_data(dict(entry.data), TO_REDACT),
+    }
+    runtime_data = getattr(entry, "runtime_data", None)
+    coordinator = getattr(runtime_data, "coordinator", None)
+    if coordinator is not None:
+        diagnostics["telemetry"] = coordinator.diagnostics()
+    return diagnostics

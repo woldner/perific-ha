@@ -22,6 +22,9 @@ CONTENT_TYPE_JSON = "application/json"
 MILLISECONDS_PER_SECOND = 1000
 MAX_PHASE_MINUTE_PACKET_AGE_SECONDS = 300
 FIELD_PHASE_MINUTE_STALE = "LatestPackets.PhaseMinute.ts.stale"
+GRID_POWER_STATUS_BASELINE_REQUIRED = "baseline_required"
+GRID_POWER_STATUS_READY = "ready"
+GRID_POWER_STATUS_STALE_PHASE_MINUTE = "stale_phase_minute"
 
 type JsonPrimitive = bool | int | float | str | None
 type JsonValue = JsonPrimitive | list[JsonValue] | dict[str, JsonValue]
@@ -74,6 +77,7 @@ class PerificMeterData:
     item_id: str
     grid_power_w: float | None
     timestamp: int | None
+    status: str = GRID_POWER_STATUS_READY
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +129,23 @@ class PerificClient:
         return parse_latest_meter_sample(
             payload,
             item_id=item_id,
+            max_age_seconds=max_age_seconds,
+            now_ms=int(time.time() * MILLISECONDS_PER_SECOND),
+        )
+
+    async def async_get_latest_meter_samples(
+        self,
+        *,
+        max_age_seconds: int | None = MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+    ) -> tuple[PerificMeterSample, ...]:
+        payload = await self._request(
+            "PUT",
+            "/getlatestpackets",
+            json_body={},
+            token=self._token,
+        )
+        return parse_latest_meter_samples(
+            payload,
             max_age_seconds=max_age_seconds,
             now_ms=int(time.time() * MILLISECONDS_PER_SECOND),
         )
@@ -183,6 +204,36 @@ def parse_latest_meter_sample(
 ) -> PerificMeterSample:
     packets = _require_list(payload, "root")
     packet = _select_packet(packets, item_id)
+    return _parse_meter_packet(
+        packet,
+        max_age_seconds=max_age_seconds,
+        now_ms=now_ms,
+    )
+
+
+def parse_latest_meter_samples(
+    payload: JsonValue,
+    *,
+    max_age_seconds: int | None = None,
+    now_ms: int | None = None,
+) -> tuple[PerificMeterSample, ...]:
+    packets = _require_list(payload, "root")
+    return tuple(
+        _parse_meter_packet(
+            _require_object(packet, f"root[{index}]"),
+            max_age_seconds=max_age_seconds,
+            now_ms=now_ms,
+        )
+        for index, packet in enumerate(packets)
+    )
+
+
+def _parse_meter_packet(
+    packet: Mapping[str, JsonValue],
+    *,
+    max_age_seconds: int | None,
+    now_ms: int | None,
+) -> PerificMeterSample:
     latest_packets = _require_object(packet.get("LatestPackets"), "LatestPackets")
     phase_minute = _require_object(
         latest_packets.get("PhaseMinute"),

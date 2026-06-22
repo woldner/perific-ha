@@ -8,6 +8,7 @@ from custom_components.perific.api import (
     PerificMeterSample,
     parse_auth_response,
     parse_latest_meter_sample,
+    parse_latest_meter_samples,
 )
 from custom_components.perific.meter import (
     MAX_GRID_POWER_STATE_AGE_SECONDS,
@@ -98,6 +99,50 @@ def test_parse_latest_meter_sample_selects_configured_item_id() -> None:
         import_energy_kwh=3000.0,
         export_energy_kwh=250.0,
         timestamp=1782120060000,
+    )
+
+
+def test_parse_latest_meter_samples_reads_all_meter_candidates() -> None:
+    payload = [
+        {
+            "ItemId": 11111,
+            "LatestPackets": {
+                "PhaseMinute": {
+                    "data": {
+                        "hwi": 1000,
+                        "hwo": 10,
+                    },
+                    "ts": 1782120000000,
+                },
+            },
+        },
+        {
+            "ItemId": 22222,
+            "LatestPackets": {
+                "PhaseMinute": {
+                    "data": {
+                        "hwi": 3000,
+                        "hwo": 250,
+                    },
+                    "ts": 1782120060000,
+                },
+            },
+        },
+    ]
+
+    assert parse_latest_meter_samples(payload, max_age_seconds=None) == (
+        PerificMeterSample(
+            item_id="11111",
+            import_energy_kwh=1000.0,
+            export_energy_kwh=10.0,
+            timestamp=1782120000000,
+        ),
+        PerificMeterSample(
+            item_id="22222",
+            import_energy_kwh=3000.0,
+            export_energy_kwh=250.0,
+            timestamp=1782120060000,
+        ),
     )
 
 

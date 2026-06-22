@@ -7,6 +7,9 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -17,6 +20,7 @@ from .api import (
     PerificClient,
     PerificConnectionError,
     PerificDataError,
+    PerificMeterSample,
     PerificResponseError,
 )
 from .const import (
@@ -38,11 +42,13 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class ValidatedConfig:
     data: dict[str, str]
+    meter_samples: tuple[PerificMeterSample, ...]
     user_id: str
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+    _pending_config: ValidatedConfig | None = None
     _reauth_username: str | None = None
 
     async def async_step_user(
@@ -54,13 +60,44 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             validated = await self._async_validate_credentials(user_input, errors)
             if validated is not None:
-                await self.async_set_unique_id(validated.user_id)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title="Perific", data=validated.data)
+                self._pending_config = validated
+                return await self.async_step_meter()
 
         return self.async_show_form(
             step_id="user",
             data_schema=_credentials_schema(),
+            errors=errors,
+        )
+
+    async def async_step_meter(
+        self,
+        user_input: dict[str, str] | None = None,
+    ) -> ConfigFlowResult:
+        if self._pending_config is None:
+            return await self.async_step_user()
+
+        errors: dict[str, str] = {}
+        meter_ids = {sample.item_id for sample in self._pending_config.meter_samples}
+        if user_input is not None:
+            item_id = user_input[CONF_ITEM_ID]
+            if item_id in meter_ids:
+                if self._async_entry_configured(
+                    self._pending_config.user_id,
+                    item_id,
+                ):
+                    return self.async_abort(reason="already_configured")
+                data = dict(self._pending_config.data)
+                data[CONF_ITEM_ID] = item_id
+                await self.async_set_unique_id(
+                    _entry_unique_id(self._pending_config.user_id, item_id),
+                )
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(title="Perific", data=data)
+            errors["base"] = "invalid_meter"
+
+        return self.async_show_form(
+            step_id="meter",
+            data_schema=_meter_schema(self._pending_config.meter_samples),
             errors=errors,
         )
 
@@ -84,10 +121,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 verify_meter=False,
             )
             if validated is not None:
-                await self.async_set_unique_id(validated.user_id)
+                reauth_entry = self._get_reauth_entry()
+                item_id = str(reauth_entry.data[CONF_ITEM_ID])
+                await self.async_set_unique_id(
+                    _reauth_unique_id(validated.user_id, item_id, reauth_entry),
+                )
                 self._abort_if_unique_id_mismatch(reason="wrong_account")
                 return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(),
+                    reauth_entry,
                     data_updates=validated.data,
                 )
 
@@ -116,29 +157,34 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_TOKEN_VALID_TO: auth.token_valid_to,
                 CONF_USER_ID: auth.user_id,
             }
+            meter_samples = ()
             if verify_meter:
-                meter_sample = await client.async_get_latest_meter_sample(
+                meter_samples = await client.async_get_latest_meter_samples(
                     max_age_seconds=None,
                 )
-                data[CONF_ITEM_ID] = meter_sample.item_id
         except PerificAuthError:
             errors["base"] = "invalid_auth"
         except PerificConnectionError:
             errors["base"] = "cannot_connect"
-        except PerificDataError as err:
-            if err.field == "ItemId.ambiguous":
-                errors["base"] = "multiple_meters"
-            else:
-                errors["base"] = "no_meter"
+        except PerificDataError:
+            errors["base"] = "no_meter"
         except PerificResponseError:
             errors["base"] = "cannot_connect"
         else:
             return ValidatedConfig(
                 data=data,
+                meter_samples=meter_samples,
                 user_id=auth.user_id,
             )
 
         return None
+
+    def _async_entry_configured(self, user_id: str, item_id: str) -> bool:
+        return any(
+            entry.data.get(CONF_USER_ID) == user_id
+            and entry.data.get(CONF_ITEM_ID) == item_id
+            for entry in self._async_current_entries()
+        )
 
 
 def _credentials_schema(username: str | None = None) -> vol.Schema:
@@ -158,3 +204,36 @@ def _credentials_schema(username: str | None = None) -> vol.Schema:
             ),
         },
     )
+
+
+def _meter_schema(meter_samples: tuple[PerificMeterSample, ...]) -> vol.Schema:
+    return vol.Schema(
+        {
+            vol.Required(CONF_ITEM_ID): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(
+                            value=sample.item_id,
+                            label=f"Perific meter {sample.item_id}",
+                        )
+                        for sample in meter_samples
+                    ],
+                ),
+            ),
+        },
+    )
+
+
+def _entry_unique_id(user_id: str, item_id: str) -> str:
+    return f"{user_id}_{item_id}"
+
+
+def _reauth_unique_id(
+    user_id: str,
+    item_id: str,
+    entry: config_entries.ConfigEntry,
+) -> str:
+    meter_unique_id = _entry_unique_id(user_id, item_id)
+    if entry.unique_id == meter_unique_id:
+        return meter_unique_id
+    return user_id

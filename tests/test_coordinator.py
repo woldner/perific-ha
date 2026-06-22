@@ -8,6 +8,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.perific.api import (
     FIELD_PHASE_MINUTE_STALE,
+    GRID_POWER_STATUS_BASELINE_REQUIRED,
+    GRID_POWER_STATUS_READY,
+    GRID_POWER_STATUS_STALE_PHASE_MINUTE,
     MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
     PerificClient,
     PerificDataError,
@@ -107,6 +110,7 @@ async def test_coordinator_sets_unavailable_data_without_grid_power_delta(
     assert coordinator.last_update_success
     assert client.requested_max_age_seconds == [MAX_PHASE_MINUTE_PACKET_AGE_SECONDS]
     assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert coordinator.data.timestamp == sample.timestamp
     assert accumulator.last_sample == sample
     assert sample_store.saved_states == [
@@ -143,6 +147,7 @@ async def test_coordinator_uses_baseline_from_previous_run(
     assert coordinator.config_entry is entry
     assert coordinator.last_update_success
     assert coordinator.data.grid_power_w == pytest.approx(10020.0)
+    assert coordinator.data.status == GRID_POWER_STATUS_READY
     assert client.requested_item_ids == ["meter-a"]
     assert len(sample_store.saved_states) == 1
     saved_entry_id, saved_state = sample_store.saved_states[0]
@@ -259,6 +264,7 @@ async def test_coordinator_resets_expired_baseline_without_setup_failure(
 
     assert coordinator.last_update_success
     assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert coordinator.data.timestamp == current_sample.timestamp
     assert accumulator.last_sample == current_sample
     assert sample_store.saved_states == [
@@ -294,6 +300,7 @@ async def test_coordinator_loads_with_stale_packet_error_as_unavailable(
     assert client.requested_max_age_seconds == [MAX_PHASE_MINUTE_PACKET_AGE_SECONDS]
     assert coordinator.data.item_id == "meter-a"
     assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_STALE_PHASE_MINUTE
     assert coordinator.data.timestamp is None
     assert accumulator.last_sample is None
     assert sample_store.saved_states == []
@@ -329,6 +336,7 @@ async def test_coordinator_clears_stored_data_on_stale_packet_error(
 
     assert coordinator.last_update_success
     assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_STALE_PHASE_MINUTE
     assert coordinator.data.timestamp is None
     assert accumulator.last_sample == stored_sample
     assert accumulator.last_data is None
@@ -399,9 +407,40 @@ async def test_coordinator_does_not_persist_single_counter_reset_candidate(
 
     assert coordinator.last_update_success
     assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert accumulator.last_sample == stored_sample
     assert accumulator.counter_reset_candidate == reset_candidate
     assert sample_store.saved_states == []
+
+
+async def test_coordinator_diagnostics_explain_unavailable_grid_power(
+    hass: HomeAssistant,
+) -> None:
+    entry = _mock_entry(hass)
+    sample = _meter_sample(
+        import_energy_kwh=1000.000,
+        timestamp=1782120000000,
+    )
+    coordinator = _coordinator(
+        hass,
+        entry,
+        CoordinatorTestRuntime(
+            FakePerificClient([sample]),
+            PerificGridPowerAccumulator(),
+            FakeSampleStore(),
+            now_ms=1782120030000,
+        ),
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.diagnostics() == {
+        "grid_power_status": GRID_POWER_STATUS_BASELINE_REQUIRED,
+        "has_grid_power": False,
+        "last_update_success": True,
+        "phase_minute_max_age_seconds": MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+        "source_timestamp_age_seconds": 30,
+    }
 
 
 def _coordinator(

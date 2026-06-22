@@ -9,6 +9,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import (
     FIELD_PHASE_MINUTE_STALE,
+    GRID_POWER_STATUS_BASELINE_REQUIRED,
+    GRID_POWER_STATUS_STALE_PHASE_MINUTE,
+    MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
     MILLISECONDS_PER_SECOND,
     PerificAuthError,
     PerificDataError,
@@ -74,6 +77,7 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
                     item_id=sample.item_id,
                     grid_power_w=None,
                     timestamp=sample.timestamp,
+                    status=GRID_POWER_STATUS_BASELINE_REQUIRED,
                 )
         except PerificAuthError as err:
             raise ConfigEntryAuthFailed(AUTH_FAILURE_MESSAGE) from err
@@ -102,7 +106,29 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
             item_id=self._runtime.item_id,
             grid_power_w=None,
             timestamp=None,
+            status=GRID_POWER_STATUS_STALE_PHASE_MINUTE,
         )
+
+    def diagnostics(self) -> dict[str, object]:
+        data = self.data
+        if data is None:
+            return {
+                "grid_power_status": None,
+                "has_grid_power": False,
+                "last_update_success": self.last_update_success,
+                "phase_minute_max_age_seconds": MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+            }
+
+        return {
+            "grid_power_status": data.status,
+            "has_grid_power": data.grid_power_w is not None,
+            "last_update_success": self.last_update_success,
+            "phase_minute_max_age_seconds": MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+            "source_timestamp_age_seconds": _timestamp_age_seconds(
+                data.timestamp,
+                now_ms=self._runtime.now_ms(),
+            ),
+        }
 
     async def _async_update_from_sample(
         self,
@@ -129,3 +155,9 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
                     self.config_entry.entry_id,
                     PerificStoredGridPowerState(sample=sample, data=last_data),
                 )
+
+
+def _timestamp_age_seconds(timestamp: int | None, *, now_ms: int) -> int | None:
+    if timestamp is None:
+        return None
+    return max(0, (now_ms - timestamp) // MILLISECONDS_PER_SECOND)

@@ -7,11 +7,18 @@
     },
     "error": {
       "cannot_connect": "Could not connect to Perific.",
+      "invalid_meter": "Select a listed Perific meter.",
       "invalid_auth": "Invalid authentication.",
-      "multiple_meters": "Multiple Perific meters were found. This prerelease integration cannot choose a meter automatically yet.",
       "no_meter": "No supported Perific meter data was found."
     },
     "step": {
+      "meter": {
+        "data": {
+          "item_id": "Meter"
+        },
+        "description": "Select the Perific meter to use for grid power.",
+        "title": "Select Perific meter"
+      },
       "reauth_confirm": {
         "data": {
           "password": "Password",
