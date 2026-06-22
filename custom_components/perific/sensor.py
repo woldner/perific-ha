@@ -71,3 +71,11 @@ class PerificGridPowerSensor(
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.grid_power_w
+
+    @property
+    def available(self) -> bool:
+        return (
+            super().available
+            and self.coordinator.data is not None
+            and self.coordinator.data.grid_power_w is not None
+        )

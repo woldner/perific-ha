@@ -132,8 +132,11 @@ paths:
       summary: Get latest meter packets.
       description: >
         Credentialed verification shows this route accepts PUT with an empty
-        JSON body and returns latest packet data. The first Home Assistant
-        sensor uses PhaseMinute.data hwi minus hwo as net grid power in watts.
+        JSON body and returns latest packet data. Net grid power is derived
+        from consecutive PhaseMinute.data hwi and hwo energy counter deltas over
+        PhaseMinute.ts elapsed time. Do not use hwi minus hwo as instantaneous
+        watts. PhaseRealTime hiavg and huavg are current and voltage telemetry;
+        they do not provide net import/export direction.
       x-perific-verification:
         status: credentialed_verified
         observed_at: "2026-06-22"
@@ -142,10 +145,13 @@ paths:
           - "GET /getlatestpackets -> 405"
           - "PUT /getlatestpackets with X-Authorization and empty body -> 200"
           - "PUT /getlatestpackets with invalid X-Authorization -> 401"
-          - "PhaseMinute.data includes numeric hwi and hwo fields"
+          - "PhaseMinute.data includes numeric hwi and hwo cumulative counters with an observed kilowatt-hour scale"
+          - "PhaseMinute.ts is a Unix epoch timestamp in milliseconds"
+          - "Consecutive hwi and hwo deltas track load changes; direct hwi minus hwo does not represent instantaneous watts"
+          - "PhaseRealTime.data includes hiavg current and huavg voltage arrays, but not net import/export direction"
         pending:
-          - Vendor-documented hwi/hwo field semantics
-          - Timestamp and staleness semantics
+          - Vendor-documented hwi and hwo units
+          - Vendor-documented current, voltage, and power semantics
           - Error response schema
       requestBody:
         required: false
@@ -256,14 +262,42 @@ components:
           required:
             - PhaseMinute
           properties:
+            PhaseRealTime:
+              $ref: "#/components/schemas/PhaseRealTimePacket"
             PhaseMinute:
               $ref: "#/components/schemas/PhaseMinutePacket"
           additionalProperties: true
+      additionalProperties: true
+    PhaseRealTimePacket:
+      type: object
+      required:
+        - data
+        - ts
+      properties:
+        data:
+          type: object
+          required:
+            - hiavg
+            - huavg
+          properties:
+            hiavg:
+              type: array
+              items:
+                type: number
+            huavg:
+              type: array
+              items:
+                type: number
+          additionalProperties: true
+        ts:
+          type: integer
+          description: Unix epoch timestamp in milliseconds.
       additionalProperties: true
     PhaseMinutePacket:
       type: object
       required:
         - data
+        - ts
       properties:
         data:
           type: object
@@ -273,11 +307,20 @@ components:
           properties:
             hwi:
               type: number
+              description: >
+                Cumulative import energy counter, observed as kilowatt-hours.
+                Use only with a newer
+                PhaseMinute sample to derive average net power.
             hwo:
               type: number
+              description: >
+                Cumulative export energy counter, observed as kilowatt-hours.
+                Use only with a newer
+                PhaseMinute sample to derive average net power.
           additionalProperties: true
         ts:
           type: integer
+          description: Unix epoch timestamp in milliseconds.
       additionalProperties: true
     UnverifiedJsonObject:
       type: object

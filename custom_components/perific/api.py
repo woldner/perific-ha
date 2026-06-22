@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, cast
@@ -18,6 +19,9 @@ HTTP_UNAUTHORIZED = 401
 
 AUTHORIZATION_HEADER = "X-Authorization"
 CONTENT_TYPE_JSON = "application/json"
+MILLISECONDS_PER_SECOND = 1000
+MAX_PHASE_MINUTE_PACKET_AGE_SECONDS = 300
+FIELD_PHASE_MINUTE_STALE = "LatestPackets.PhaseMinute.ts.stale"
 
 type JsonPrimitive = bool | int | float | str | None
 type JsonValue = JsonPrimitive | list[JsonValue] | dict[str, JsonValue]
@@ -68,8 +72,16 @@ class PerificAuth:
 @dataclass(frozen=True, slots=True)
 class PerificMeterData:
     item_id: str
-    grid_power_w: float
+    grid_power_w: float | None
     timestamp: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class PerificMeterSample:
+    item_id: str
+    import_energy_kwh: float
+    export_energy_kwh: float
+    timestamp: int
 
 
 class PerificClient:
@@ -98,18 +110,24 @@ class PerificClient:
     async def async_get_account_overview(self) -> JsonValue:
         return await self._request("GET", "/getaccountoverview", token=self._token)
 
-    async def async_get_latest_meter_data(
+    async def async_get_latest_meter_sample(
         self,
         *,
         item_id: str | None = None,
-    ) -> PerificMeterData:
+        max_age_seconds: int | None = MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+    ) -> PerificMeterSample:
         payload = await self._request(
             "PUT",
             "/getlatestpackets",
             json_body={},
             token=self._token,
         )
-        return parse_latest_meter_data(payload, item_id=item_id)
+        return parse_latest_meter_sample(
+            payload,
+            item_id=item_id,
+            max_age_seconds=max_age_seconds,
+            now_ms=int(time.time() * MILLISECONDS_PER_SECOND),
+        )
 
     async def _request(
         self,
@@ -156,11 +174,13 @@ def parse_auth_response(payload: JsonValue) -> PerificAuth:
     )
 
 
-def parse_latest_meter_data(
+def parse_latest_meter_sample(
     payload: JsonValue,
     *,
     item_id: str | None = None,
-) -> PerificMeterData:
+    max_age_seconds: int | None = None,
+    now_ms: int | None = None,
+) -> PerificMeterSample:
     packets = _require_list(payload, "root")
     packet = _select_packet(packets, item_id)
     latest_packets = _require_object(packet.get("LatestPackets"), "LatestPackets")
@@ -173,19 +193,30 @@ def parse_latest_meter_data(
         "LatestPackets.PhaseMinute.data",
     )
 
-    watt_import = _require_number(
+    import_energy_kwh = _require_number(
         data.get("hwi"),
         "LatestPackets.PhaseMinute.data.hwi",
     )
-    watt_export = _require_number(
+    export_energy_kwh = _require_number(
         data.get("hwo"),
         "LatestPackets.PhaseMinute.data.hwo",
     )
 
-    return PerificMeterData(
+    timestamp = _require_int(
+        phase_minute.get("ts"),
+        "LatestPackets.PhaseMinute.ts",
+    )
+    _raise_if_stale(
+        timestamp,
+        now_ms=now_ms,
+        max_age_seconds=max_age_seconds,
+    )
+
+    return PerificMeterSample(
         item_id=_require_identifier(packet.get("ItemId"), "ItemId"),
-        grid_power_w=watt_import - watt_export,
-        timestamp=_optional_int(phase_minute.get("ts"), "LatestPackets.PhaseMinute.ts"),
+        import_energy_kwh=import_energy_kwh,
+        export_energy_kwh=export_energy_kwh,
+        timestamp=timestamp,
     )
 
 
@@ -193,10 +224,18 @@ def _select_packet(
     packets: list[JsonValue],
     item_id: str | None,
 ) -> Mapping[str, JsonValue]:
+    if item_id is None:
+        if len(packets) != 1:
+            field = "ItemId.ambiguous"
+            raise PerificDataError(field)
+        packet = _require_object(packets[0], "root[0]")
+        _require_identifier(packet.get("ItemId"), "ItemId")
+        return packet
+
     for index, candidate in enumerate(packets):
         packet = _require_object(candidate, f"root[{index}]")
         packet_item_id = _require_identifier(packet.get("ItemId"), "ItemId")
-        if item_id is None or packet_item_id == item_id:
+        if packet_item_id == item_id:
             return packet
     field = "ItemId"
     raise PerificDataError(field)
@@ -244,9 +283,20 @@ def _require_number(value: JsonValue | None, field: str) -> float:
     return float(value)
 
 
-def _optional_int(value: JsonValue | None, field: str) -> int | None:
-    if value is None:
-        return None
+def _require_int(value: JsonValue | None, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise PerificDataError(field)
     return value
+
+
+def _raise_if_stale(
+    timestamp_ms: int,
+    *,
+    now_ms: int | None,
+    max_age_seconds: int | None,
+) -> None:
+    if now_ms is None or max_age_seconds is None:
+        return
+    max_age_ms = max_age_seconds * MILLISECONDS_PER_SECOND
+    if timestamp_ms > now_ms + max_age_ms or now_ms - timestamp_ms > max_age_ms:
+        raise PerificDataError(FIELD_PHASE_MINUTE_STALE)

@@ -67,10 +67,20 @@ credentials, private identifiers, raw payloads, or meter values were committed.
 | `/getaccountoverview` | `GET` and `PUT {}` with `X-Authorization` return `200`; an invalid token returns `401`. | Token header verified. Schema still broad. |
 | `/getlatestpackets` | `PUT {}` with `X-Authorization` returns latest packet data; an invalid token returns `401`. | First telemetry schema verified for selected fields. |
 
-Latest packet data includes a `PhaseMinute.data` object with `hwi` and `hwo`
-numeric fields. The first sensor computes net grid power as `hwi - hwo` watts.
-This field meaning is inferred from verified live field names and must be
-rechecked against vendor documentation if it becomes available.
+`PhaseMinute.data.hwi` and `PhaseMinute.data.hwo` are cumulative import/export
+energy counters with an observed kilowatt-hour scale. Do not publish `hwi -
+hwo` as instantaneous watts. Derive net grid power from consecutive
+`PhaseMinute` samples with increasing timestamps:
+`((delta_hwi_kwh - delta_hwo_kwh) * 1000 * 3600000) / delta_ms`.
+
+Reject stale `PhaseMinute.ts` values instead of publishing unbounded stale
+power. The runtime currently treats `PhaseMinute` packets older than 5 minutes
+as stale and resets the delta baseline after overlong sample gaps. Counter
+decreases start a new candidate baseline and require another monotonic sample
+before publishing power.
+`PhaseRealTime.data.hiavg[]` and `huavg[]` provide current and voltage
+telemetry, but they do not provide net import/export direction and are not the
+primary grid-power source.
 
 ## First Slice Boundary
 

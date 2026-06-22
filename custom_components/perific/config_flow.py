@@ -117,14 +117,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_USER_ID: auth.user_id,
             }
             if verify_meter:
-                meter_data = await client.async_get_latest_meter_data()
-                data[CONF_ITEM_ID] = meter_data.item_id
+                meter_sample = await client.async_get_latest_meter_sample(
+                    max_age_seconds=None,
+                )
+                data[CONF_ITEM_ID] = meter_sample.item_id
         except PerificAuthError:
             errors["base"] = "invalid_auth"
         except PerificConnectionError:
             errors["base"] = "cannot_connect"
-        except PerificDataError:
-            errors["base"] = "no_meter"
+        except PerificDataError as err:
+            if err.field == "ItemId.ambiguous":
+                errors["base"] = "multiple_meters"
+            else:
+                errors["base"] = "no_meter"
         except PerificResponseError:
             errors["base"] = "cannot_connect"
         else:

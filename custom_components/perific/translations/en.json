@@ -8,6 +8,7 @@
     "error": {
       "cannot_connect": "Could not connect to Perific.",
       "invalid_auth": "Invalid authentication.",
+      "multiple_meters": "Multiple Perific meters were found. This prerelease integration cannot choose a meter automatically yet.",
       "no_meter": "No supported Perific meter data was found."
     },
     "step": {

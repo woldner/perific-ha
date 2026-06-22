@@ -14,7 +14,8 @@ from custom_components.perific import config_flow
 from custom_components.perific.api import (
     PerificAuth,
     PerificAuthError,
-    PerificMeterData,
+    PerificDataError,
+    PerificMeterSample,
 )
 from custom_components.perific.const import (
     CONF_ITEM_ID,
@@ -31,7 +32,8 @@ if TYPE_CHECKING:
 
 
 class FakePerificClient:
-    fail_latest_meter_data: ClassVar[bool] = False
+    fail_latest_meter_sample: ClassVar[bool] = False
+    latest_meter_sample_error: ClassVar[Exception | None] = None
     requested_item_ids: ClassVar[list[str | None]] = []
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -47,25 +49,31 @@ class FakePerificClient:
             user_id="user-1",
         )
 
-    async def async_get_latest_meter_data(
+    async def async_get_latest_meter_sample(
         self,
         *,
         item_id: str | None = None,
-    ) -> PerificMeterData:
+        max_age_seconds: int | None = None,
+    ) -> PerificMeterSample:
+        assert max_age_seconds is None
         self.requested_item_ids.append(item_id)
-        if self.fail_latest_meter_data:
-            msg = "latest_meter_data_failed"
+        if self.latest_meter_sample_error is not None:
+            raise self.latest_meter_sample_error
+        if self.fail_latest_meter_sample:
+            msg = "latest_meter_sample_failed"
             raise RuntimeError(msg)
-        return PerificMeterData(
+        return PerificMeterSample(
             item_id=item_id or "meter-a",
-            grid_power_w=1234.0,
-            timestamp=1782120000,
+            import_energy_kwh=1234.0,
+            export_energy_kwh=0.0,
+            timestamp=1782120000000,
         )
 
 
 @pytest.fixture
 def fake_perific_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    FakePerificClient.fail_latest_meter_data = False
+    FakePerificClient.fail_latest_meter_sample = False
+    FakePerificClient.latest_meter_sample_error = None
     FakePerificClient.requested_item_ids = []
     monkeypatch.setattr(config_flow, "PerificClient", FakePerificClient)
 
@@ -118,6 +126,30 @@ async def test_user_flow_reports_invalid_auth(
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_user_flow_reports_multiple_meters(
+    hass: HomeAssistant,
+    enable_custom_integrations: None,
+    fake_perific_client: None,
+) -> None:
+    assert enable_custom_integrations is None
+    assert fake_perific_client is None
+    FakePerificClient.latest_meter_sample_error = PerificDataError(
+        "ItemId.ambiguous",
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_USER},
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "correct-password",
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "multiple_meters"}
 
 
 async def test_reauth_preserves_configured_item_id(
@@ -181,7 +213,7 @@ async def test_reauth_does_not_require_meter_telemetry(
         },
     )
     entry.add_to_hass(hass)
-    FakePerificClient.fail_latest_meter_data = True
+    FakePerificClient.fail_latest_meter_sample = True
 
     result = await start_reauth_flow(hass, entry)
     result = await hass.config_entries.flow.async_configure(
