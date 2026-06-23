@@ -147,6 +147,8 @@ Run the full local hook set before pushing or asking for review:
 uv run pre-commit run --all-files
 ```
 
+Release automation is documented in [`docs/release.md`](docs/release.md).
+
 Apply safe Ruff fixes locally with:
 
 ```sh
