@@ -23,3 +23,15 @@ def test_project_and_manifest_versions_match() -> None:
 
     assert project_version == manifest_version
     assert SEMVER_RE.fullmatch(project_version) is not None
+
+
+def test_semantic_release_updates_locked_project_version() -> None:
+    """Keep generated release commits from leaving uv.lock stale."""
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+
+    build_command = project["tool"]["semantic_release"]["build_command"]
+
+    assert build_command.lstrip().startswith("set -e\n")
+    assert 'python -m pip install "uv==0.11.16"' in build_command
+    assert 'uv lock --upgrade-package "$PACKAGE_NAME"' in build_command
+    assert "git add uv.lock" in build_command
