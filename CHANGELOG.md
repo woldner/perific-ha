@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v0.4.1 (2026-06-23)
+
+### Bug Fixes
+
+- **entity**: Publish readiness identity reset
+  ([`50bb647`](https://github.com/woldner/perific-ha/commit/50bb64787ce4a3e59c84cb60fd43d08b060f7d49))
+
+### Refactoring
+
+- **entity**: Centralize readiness identity
+  ([`cc44c02`](https://github.com/woldner/perific-ha/commit/cc44c02b38d47112ac79eb2fb0603417ef79a1a5))
+
+### Testing
+
+- **smoke**: Require readiness binary in HA smoke
+  ([`e1b47ef`](https://github.com/woldner/perific-ha/commit/e1b47ef3e53057d1c388bc56fbdb7e95eeec60cb))
+
+
 ## v0.4.0 (2026-06-23)
 
 ### Features
