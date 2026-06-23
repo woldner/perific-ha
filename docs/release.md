@@ -9,15 +9,15 @@ Release automation updates both version fields:
 - `pyproject.toml:project.version`
 - `custom_components/perific/manifest.json:version`
 
-The first GitHub Release must be created manually from the current known-good
-state:
+The initial release baseline is `v0.1.0`. If the release baseline must be
+recreated, create it from the current known-good `main` commit:
 
 ```sh
 gh release create v0.1.0 --target main --title v0.1.0 --notes "Initial dogfooding release."
 ```
 
-After the initial release exists, pushes to `main` run validation and create a
-new GitHub Release when Conventional Commits require a SemVer bump.
+Pushes to `main` run validation and create a new GitHub Release when
+Conventional Commits require a SemVer bump.
 
 Before changing release automation, run:
 

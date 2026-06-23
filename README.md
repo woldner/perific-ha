@@ -42,9 +42,8 @@ that depends on an undocumented cloud API.
 5. Download `Perific`.
 6. Restart Home Assistant.
 
-Until the first public GitHub release exists, install from the default branch
-for controlled testing. Public distribution should use GitHub releases so HACS
-can show normal version choices.
+Use the latest GitHub Release for normal HACS installs. Use the default branch
+only for controlled testing of unreleased changes.
 
 ### Manual Installation
 
