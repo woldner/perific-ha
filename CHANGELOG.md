@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.3.0 (2026-06-23)
+
+### Features
+
+- **sensor**: Expose meter sample timestamp
+  ([`c8795bc`](https://github.com/woldner/perific-ha/commit/c8795bcfffb94070e91bf1ada8032abf5111557b))
+
+
 ## v0.2.0 (2026-06-23)
 
 ### Continuous Integration
