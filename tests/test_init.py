@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from custom_components.perific import PerificDomainData, get_domain_data
+from custom_components.perific import PLATFORMS, PerificDomainData, get_domain_data
 from custom_components.perific.const import DOMAIN
 
 if TYPE_CHECKING:
@@ -25,3 +25,8 @@ def test_domain_data_replaces_unexpected_domain_state(hass: HomeAssistant) -> No
 
     assert isinstance(domain_data, PerificDomainData)
     assert hass.data[DOMAIN] == domain_data
+
+
+def test_platforms_include_public_entity_surfaces() -> None:
+    assert "binary_sensor" in PLATFORMS
+    assert "sensor" in PLATFORMS

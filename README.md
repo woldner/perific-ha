@@ -75,6 +75,7 @@ first meter, the default entity IDs are:
 - `sensor.perific_meter_grid_power`
 - `sensor.perific_meter_grid_power_status`
 - `sensor.perific_meter_last_meter_sample`
+- `binary_sensor.perific_meter_grid_power_ready`
 
 The sensor reports net grid power in watts. It uses consecutive Perific
 `PhaseMinute` import/export counter samples. It does not publish a guessed or
@@ -97,6 +98,12 @@ automatically after enough consecutive samples exist to calculate a safe delta.
 The last meter sample sensor shows the Perific packet timestamp used for these
 decisions. If the grid power sensor is `unknown`, compare the status sensor and
 last meter sample timestamp before changing consumers such as evcc.
+
+For a simple automation or readiness gate, use
+`binary_sensor.perific_meter_grid_power_ready`. It is `on` only when the grid
+power sensor currently has numeric watts with status `ready`; it is `off` while
+the integration is waiting for safe meter data, and unavailable if Home
+Assistant cannot fetch Perific data.
 
 The grid power sensor also keeps these diagnostic attributes for compatibility
 and support:

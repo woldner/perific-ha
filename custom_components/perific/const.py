@@ -19,3 +19,5 @@ CONF_USER_ID = "user_id"
 SENSOR_GRID_POWER_KEY = "grid_power"
 SENSOR_GRID_POWER_STATUS_KEY = "grid_power_status"
 SENSOR_LAST_METER_SAMPLE_KEY = "last_meter_sample"
+
+BINARY_SENSOR_GRID_POWER_READY_KEY = "grid_power_ready"

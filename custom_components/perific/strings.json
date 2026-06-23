@@ -37,6 +37,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "grid_power_ready": {
+        "name": "Grid power ready"
+      }
+    },
     "sensor": {
       "grid_power": {
         "name": "Grid power"

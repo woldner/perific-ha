@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from .meter import PerificGridPowerAccumulator
     from .store import PerificGridPowerSampleStore
 
-PLATFORMS = ("sensor",)
+PLATFORMS = ("binary_sensor", "sensor")
 
 
 @dataclass(slots=True)
