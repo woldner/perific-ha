@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.4.0 (2026-06-23)
+
+### Features
+
+- **sensor**: Add grid power readiness binary sensor
+  ([`7f54380`](https://github.com/woldner/perific-ha/commit/7f5438008fd22437e5b18be53a4466815f72bc4e))
+
+
 ## v0.3.0 (2026-06-23)
 
 ### Features
