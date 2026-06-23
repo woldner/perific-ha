@@ -43,18 +43,18 @@ README requirements, and the `minimum-homeassistant` dependency group together,
 then validate both normal tests and the minimum group.
 
 After changes that touch config flow, coordinator updates, sensor state,
-availability, or diagnostics, run focused tests. When live Home Assistant
-access is available, also run `scripts/smoke-ha-sensor.py` against the
-installed integration and report if the live smoke check is skipped. Do not run
-live smoke checks from pre-commit or CI.
+availability, diagnostics, or readiness, run focused tests for the touched
+source contract. Use live Home Assistant validation only when local tests cannot
+prove the behavior, and record the source commit or dirty diff plus observed
+entity states. Do not run live validation from pre-commit or CI.
 
 During controlled live validation, agents may deploy the current checkout
 directly to a controlled Home Assistant instance when live behavior cannot be
 proven locally. Before deployment, run the focused tests for the touched
 contract unless the task is inspecting the currently installed state. After
-deployment, run the live smoke check and report the source commit or dirty diff.
-Do not treat ad-hoc deployment as a release, HACS update, or substitute for the
-normal release flow.
+deployment, record the observed entity states and the source commit or dirty
+diff. Do not treat ad-hoc deployment as a release, HACS update, or substitute
+for the normal release flow.
 
 Stop and ask for input when live credentials, private API data, device identity,
 Home Assistant installation access, or external endorsement is required.

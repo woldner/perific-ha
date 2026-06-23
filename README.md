@@ -171,35 +171,14 @@ uv run pre-commit run --all-files
 ```
 
 For changes that affect the Home Assistant config flow, coordinator, sensor
-state, availability, or diagnostics, run the live smoke check when Home
-Assistant access is available:
-
-```sh
-HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
-  uv run python scripts/smoke-ha-sensor.py --samples 11 --interval 60
-```
-
-For evcc readiness, require the final observed source sample to be numeric
-`ready` and the readiness binary sensor to be `on`:
-
-```sh
-HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
-  uv run python scripts/smoke-ha-sensor.py --samples 11 --interval 60 --require-ready
-```
-
-The smoke check reads `sensor.perific_meter_grid_power` and
-`binary_sensor.perific_meter_grid_power_ready` from Home Assistant. It does not
-call evcc and does not change charger or integration state. Do not run it from
-pre-commit or CI.
-
-If you validate a renamed or additional meter, pass both
-`--grid-power-entity-id` and the matching `--ready-entity-id`.
+state, availability, diagnostics, or readiness, run focused tests for the
+touched source contract before broader checks.
 
 For controlled live validation, you may update a Home Assistant instance
 directly from the current checkout before a release. Run focused tests first
-unless you are only inspecting the installed state, run the smoke check
-afterward, and report the source commit or dirty diff. Do not treat this as a
-HACS update or release.
+unless you are only inspecting the installed state, then record the source
+commit or dirty diff and the observed Home Assistant entity states. Do not
+treat this as a HACS update or release.
 
 Release automation is documented in [`docs/release.md`](docs/release.md).
 
