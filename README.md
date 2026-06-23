@@ -80,6 +80,8 @@ stale value when the required samples are missing or too old.
 If the integration is working but cannot safely calculate watts yet, the sensor
 state is `unknown` and `grid_power_status` explains why. If the integration
 cannot fetch data or authenticate, Home Assistant marks the entity unavailable.
+When fresh `PhaseMinute` data resumes, the sensor returns to numeric watts
+automatically after enough consecutive samples exist to calculate a safe delta.
 
 | State | `grid_power_status` | Meaning | Consumer behavior |
 | --- | --- | --- | --- |
