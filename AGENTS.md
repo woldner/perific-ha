@@ -7,6 +7,12 @@ Use current Home Assistant developer docs, this repo's source, tests, fixtures,
 and explicit user constraints as authority. Treat community Perific repos and
 forum posts as context only.
 
+Repo-local skills live in `.agents/skills`. When the user invokes
+`$skill-name` or a task matches an available skill description, read the owning
+skill before acting. Use skill descriptions as the trigger authority; update
+the owning `SKILL.md` when trigger behavior is wrong instead of copying skill
+workflows into this file.
+
 Do not copy code, generated clients, OpenAPI specs, fixtures, entity mappings,
 or prose from other Perific integrations unless the user explicitly approves the
 license and attribution plan first.
