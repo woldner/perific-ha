@@ -42,6 +42,14 @@ def reading(
     )
 
 
+def ready_reading(smoke: ModuleType, *, state: str) -> object:
+    return smoke.BinarySensorReading(
+        last_changed="2026-06-23T10:00:00+00:00",
+        last_updated="2026-06-23T10:00:00+00:00",
+        state=state,
+    )
+
+
 def test_classifier_accepts_numeric_state() -> None:
     smoke = load_smoke_module()
 
@@ -55,6 +63,38 @@ def test_classifier_accepts_numeric_state() -> None:
 
     assert result.is_ok
     assert result.is_ready
+
+
+def test_sample_classifier_requires_ready_binary_for_ready_state() -> None:
+    smoke = load_smoke_module()
+
+    source = reading(state="123.4", grid_power_status="ready")
+    ready = smoke.classify_sample(source, ready_reading(smoke, state="on"))
+    mismatched = smoke.classify_sample(source, ready_reading(smoke, state="off"))
+
+    assert ready.is_ok
+    assert ready.is_ready
+    assert ready.ready_entity_matches
+    assert not mismatched.is_ok
+    assert not mismatched.is_ready
+    assert not mismatched.ready_entity_matches
+    assert not smoke.smoke_succeeds([mismatched], require_ready=True)
+
+
+def test_sample_classifier_requires_waiting_binary_for_waiting_state() -> None:
+    smoke = load_smoke_module()
+
+    source = reading(state="unknown", grid_power_status="baseline_required")
+    waiting = smoke.classify_sample(source, ready_reading(smoke, state="off"))
+    mismatched = smoke.classify_sample(source, ready_reading(smoke, state="on"))
+
+    assert waiting.is_ok
+    assert not waiting.is_ready
+    assert waiting.ready_entity_matches
+    assert not mismatched.is_ok
+    assert not mismatched.is_ready
+    assert not mismatched.ready_entity_matches
+    assert not smoke.smoke_succeeds([mismatched], require_ready=False)
 
 
 def test_classifier_rejects_numeric_state_without_ready_status() -> None:
@@ -144,6 +184,23 @@ def test_contract_smoke_can_pass_with_expected_waiting_state() -> None:
     assert smoke.smoke_succeeds(classifications, require_ready=False)
 
 
+def test_custom_grid_entity_requires_explicit_ready_entity() -> None:
+    smoke = load_smoke_module()
+    args = smoke.argparse.Namespace(
+        grid_power_entity_id="sensor.custom_grid_power",
+        ha_url="http://homeassistant.local:8123",
+        interval=0,
+        ready_entity_id=None,
+        samples=1,
+        token="token",
+    )
+
+    assert (
+        smoke.validate_args(args)
+        == "--ready-entity-id is required when --grid-power-entity-id is customized"
+    )
+
+
 def test_readiness_smoke_requires_numeric_ready_state() -> None:
     smoke = load_smoke_module()
 
@@ -184,6 +241,7 @@ def test_readiness_summary_reports_current_ready_state() -> None:
     assert smoke.smoke_summary([ready, stale], require_ready=True) == {
         "evcc_ready": False,
         "ready_samples": 1,
+        "ready_mismatch_samples": 0,
         "require_ready": True,
         "samples": 2,
         "smoke_passed": False,

@@ -14,7 +14,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-DEFAULT_ENTITY_ID = "sensor.perific_meter_grid_power"
+DEFAULT_GRID_POWER_ENTITY_ID = "sensor.perific_meter_grid_power"
+DEFAULT_READY_ENTITY_ID = "binary_sensor.perific_meter_grid_power_ready"
 DEFAULT_INTERVAL_SECONDS = 60
 DEFAULT_SAMPLES = 1
 DEFAULT_TIMEOUT_SECONDS = 10
@@ -25,6 +26,8 @@ HTTP_UNAUTHORIZED = 401
 EXPECTED_UNKNOWN_STATUSES = frozenset({"baseline_required", "stale_phase_minute"})
 EXPECTED_UNIT_OF_MEASUREMENT = "W"
 READY_STATUS = "ready"
+STATE_OFF = "off"
+STATE_ON = "on"
 STATE_UNKNOWN = "unknown"
 STATE_UNAVAILABLE = "unavailable"
 
@@ -56,10 +59,19 @@ class SensorReading:
 
 
 @dataclass(frozen=True, slots=True)
+class BinarySensorReading:
+    state: str
+    last_changed: str | None
+    last_updated: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class Classification:
     classification: str
     is_ok: bool
     is_ready: bool = False
+    ready_entity_matches: bool = True
+    ready_entity_state: str | None = None
 
 
 def classify_reading(reading: SensorReading) -> Classification:
@@ -92,6 +104,29 @@ def classify_reading(reading: SensorReading) -> Classification:
     )
 
 
+def classify_sample(
+    reading: SensorReading,
+    ready_reading: BinarySensorReading,
+) -> Classification:
+    classification = classify_reading(reading)
+    expected_ready_state = _expected_ready_state(classification)
+    ready_entity_matches = (
+        expected_ready_state is None or ready_reading.state == expected_ready_state
+    )
+    if ready_entity_matches:
+        sample_classification = classification.classification
+    else:
+        sample_classification = f"{classification.classification}_ready_mismatch"
+
+    return Classification(
+        classification=sample_classification,
+        is_ok=classification.is_ok and ready_entity_matches,
+        is_ready=classification.is_ready and ready_reading.state == STATE_ON,
+        ready_entity_matches=ready_entity_matches,
+        ready_entity_state=ready_reading.state,
+    )
+
+
 def smoke_succeeds(
     classifications: list[Classification],
     *,
@@ -110,10 +145,14 @@ def smoke_summary(
     require_ready: bool,
 ) -> dict[str, object]:
     ready_samples = sum(classification.is_ready for classification in classifications)
+    ready_mismatch_samples = sum(
+        not classification.ready_entity_matches for classification in classifications
+    )
     current_ready = classifications[-1].is_ready if classifications else False
     return {
         "evcc_ready": current_ready,
         "ready_samples": ready_samples,
+        "ready_mismatch_samples": ready_mismatch_samples,
         "require_ready": require_ready,
         "samples": len(classifications),
         "smoke_passed": smoke_succeeds(
@@ -145,6 +184,14 @@ def reading_from_state_payload(payload: dict[str, Any]) -> SensorReading:
     )
 
 
+def binary_reading_from_state_payload(payload: dict[str, Any]) -> BinarySensorReading:
+    return BinarySensorReading(
+        state=str(payload.get("state", "")),
+        last_changed=_optional_string(payload.get("last_changed")),
+        last_updated=_optional_string(payload.get("last_updated")),
+    )
+
+
 def build_url(ha_url: str, entity_id: str) -> str:
     encoded_entity_id = urllib.parse.quote(entity_id, safe="")
     return f"{ha_url.rstrip('/')}/api/states/{encoded_entity_id}"
@@ -157,6 +204,38 @@ def fetch_reading(
     entity_id: str,
     timeout: int,
 ) -> SensorReading:
+    payload = fetch_state_payload(
+        ha_url=ha_url,
+        token=token,
+        entity_id=entity_id,
+        timeout=timeout,
+    )
+    return reading_from_state_payload(payload)
+
+
+def fetch_binary_reading(
+    *,
+    ha_url: str,
+    token: str,
+    entity_id: str,
+    timeout: int,
+) -> BinarySensorReading:
+    payload = fetch_state_payload(
+        ha_url=ha_url,
+        token=token,
+        entity_id=entity_id,
+        timeout=timeout,
+    )
+    return binary_reading_from_state_payload(payload)
+
+
+def fetch_state_payload(
+    *,
+    ha_url: str,
+    token: str,
+    entity_id: str,
+    timeout: int,
+) -> dict[str, Any]:
     parsed_url = urllib.parse.urlparse(ha_url)
     if parsed_url.scheme not in {"http", "https"}:
         msg = "HA_URL must use http or https"
@@ -188,7 +267,7 @@ def fetch_reading(
     if not isinstance(payload, dict):
         msg = "Home Assistant returned a non-object state payload"
         raise SmokeCheckError(msg)
-    return reading_from_state_payload(payload)
+    return payload
 
 
 def parse_args() -> argparse.Namespace:
@@ -200,14 +279,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--ha-url", default=os.environ.get("HA_URL"))
     parser.add_argument("--token", default=os.environ.get("HA_TOKEN"))
-    parser.add_argument("--entity-id", default=DEFAULT_ENTITY_ID)
+    parser.add_argument("--grid-power-entity-id", default=DEFAULT_GRID_POWER_ENTITY_ID)
+    parser.add_argument("--ready-entity-id")
     parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_SECONDS)
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument(
         "--require-ready",
         action="store_true",
-        help="Fail unless the final sample is numeric watts with status ready.",
+        help=(
+            "Fail unless the final sample is numeric watts with status ready "
+            "and the readiness binary sensor is on."
+        ),
     )
     return parser.parse_args()
 
@@ -217,6 +300,11 @@ def validate_args(args: argparse.Namespace) -> str | None:
         return "HA_URL or --ha-url is required"
     if not args.token:
         return "HA_TOKEN or --token is required"
+    if (
+        args.grid_power_entity_id != DEFAULT_GRID_POWER_ENTITY_ID
+        and not args.ready_entity_id
+    ):
+        return "--ready-entity-id is required when --grid-power-entity-id is customized"
     if args.samples < 1:
         return "--samples must be at least 1"
     if args.interval < 0:
@@ -231,25 +319,38 @@ def main() -> int:
         sys.stderr.write(f"{validation_error}\n")
         return EXIT_USAGE
 
+    ready_entity_id = args.ready_entity_id or DEFAULT_READY_ENTITY_ID
     classifications: list[Classification] = []
     for index in range(args.samples):
         try:
             reading = fetch_reading(
                 ha_url=args.ha_url,
                 token=args.token,
-                entity_id=args.entity_id,
+                entity_id=args.grid_power_entity_id,
+                timeout=args.timeout,
+            )
+            ready_reading = fetch_binary_reading(
+                ha_url=args.ha_url,
+                token=args.token,
+                entity_id=ready_entity_id,
                 timeout=args.timeout,
             )
         except SmokeCheckError as err:
             sys.stderr.write(f"{err}\n")
             return EXIT_FAILURE
 
-        classification = classify_reading(reading)
+        classification = classify_sample(reading, ready_reading)
         classifications.append(classification)
         output = {
-            "evcc_ready": classification.is_ready,
-            "sample": index + 1,
             **reading.to_output(),
+            "classification": classification.classification,
+            "evcc_ready": classification.is_ready,
+            "ready_entity_id": ready_entity_id,
+            "ready_entity_last_changed": ready_reading.last_changed,
+            "ready_entity_last_updated": ready_reading.last_updated,
+            "ready_entity_matches": classification.ready_entity_matches,
+            "ready_entity_state": ready_reading.state,
+            "sample": index + 1,
         }
         sys.stdout.write(f"{json.dumps(output, sort_keys=True)}\n")
         if not classification.is_ok:
@@ -268,6 +369,14 @@ def _is_number(value: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _expected_ready_state(classification: Classification) -> str | None:
+    if not classification.is_ok:
+        return None
+    if classification.is_ready:
+        return STATE_ON
+    return STATE_OFF
 
 
 def _optional_string(value: object) -> str | None:
