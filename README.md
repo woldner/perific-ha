@@ -151,6 +151,25 @@ Run the full local hook set before pushing or asking for review:
 uv run pre-commit run --all-files
 ```
 
+For changes that affect the Home Assistant config flow, coordinator, sensor
+state, availability, or diagnostics, run the live smoke check when Home
+Assistant access is available:
+
+```sh
+HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
+  uv run python scripts/smoke-ha-sensor.py --samples 11 --interval 60
+```
+
+The smoke check reads only `sensor.perific_meter_grid_power` from Home
+Assistant. It does not call evcc and does not change charger or integration
+state. Do not run it from pre-commit or CI.
+
+For controlled live validation, you may update a Home Assistant instance
+directly from the current checkout before a release. Run focused tests first
+unless you are only inspecting the installed state, run the smoke check
+afterward, and report the source commit or dirty diff. Do not treat this as a
+HACS update or release.
+
 Release automation is documented in [`docs/release.md`](docs/release.md).
 
 Apply safe Ruff fixes locally with:

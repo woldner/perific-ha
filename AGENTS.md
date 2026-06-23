@@ -38,6 +38,20 @@ repo-owned `uv run` checks instead of separate global linter installations.
 Expose observable meter facts with explicit units. Grid power for energy
 management must be watts unless a consuming interface documents another unit.
 
+After changes that touch config flow, coordinator updates, sensor state,
+availability, or diagnostics, run focused tests. When live Home Assistant
+access is available, also run `scripts/smoke-ha-sensor.py` against the
+installed integration and report if the live smoke check is skipped. Do not run
+live smoke checks from pre-commit or CI.
+
+During controlled live validation, agents may deploy the current checkout
+directly to a controlled Home Assistant instance when live behavior cannot be
+proven locally. Before deployment, run the focused tests for the touched
+contract unless the task is inspecting the currently installed state. After
+deployment, run the live smoke check and report the source commit or dirty diff.
+Do not treat ad-hoc deployment as a release, HACS update, or substitute for the
+normal release flow.
+
 Stop and ask for input when live credentials, private API data, device identity,
 Home Assistant installation access, or external endorsement is required.
 
