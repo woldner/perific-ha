@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.2.0 (2026-06-23)
+
+### Continuous Integration
+
+- **deps**: Enable dependabot updates
+  ([`c4369ca`](https://github.com/woldner/perific-ha/commit/c4369ca76fbca50e01503c3c56bd161d3e6a7d41))
+
+### Features
+
+- **sensor**: Expose grid power status
+  ([`c320f08`](https://github.com/woldner/perific-ha/commit/c320f08fbb26f28e1311ec3cbc43e1ab50c7cdef))
+
+
 ## v0.1.2 (2026-06-23)
 
 ### Bug Fixes
