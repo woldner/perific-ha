@@ -84,7 +84,7 @@ class CoordinatorTestRuntime:
     now_ms: int = SECOND_SAMPLE_TIMESTAMP
 
 
-async def test_coordinator_sets_unavailable_data_without_grid_power_delta(
+async def test_coordinator_sets_unknown_data_without_grid_power_delta(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)
@@ -275,7 +275,7 @@ async def test_coordinator_resets_expired_baseline_without_setup_failure(
     ]
 
 
-async def test_coordinator_loads_with_stale_packet_error_as_unavailable(
+async def test_coordinator_loads_with_stale_packet_error_as_unknown_data(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)
@@ -413,7 +413,7 @@ async def test_coordinator_does_not_persist_single_counter_reset_candidate(
     assert sample_store.saved_states == []
 
 
-async def test_coordinator_diagnostics_explain_unavailable_grid_power(
+async def test_coordinator_diagnostics_explain_unknown_grid_power(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)

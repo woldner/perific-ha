@@ -78,10 +78,16 @@ The sensor reports net grid power in watts. It uses consecutive Perific
 `PhaseMinute` import/export counter samples. It does not publish a guessed or
 stale value when the required samples are missing or too old.
 
-The sensor may be unavailable while the integration waits for a fresh baseline,
-after a long reporting gap, or when the Perific cloud API does not provide fresh
-minute data. This is intentional: unavailable is safer than stale power for
-energy management.
+If the integration is working but cannot safely calculate watts yet, the sensor
+state is `unknown` and `grid_power_status` explains why. If the integration
+cannot fetch data or authenticate, Home Assistant marks the entity unavailable.
+
+| State | `grid_power_status` | Meaning | Consumer behavior |
+| --- | --- | --- | --- |
+| Numeric watts | `ready` | A fresh grid-power value was calculated from consecutive meter samples. | Use the sensor value. |
+| `unknown` | `baseline_required` | The integration has a meter sample and needs another valid sample before calculating watts. | Wait and do not substitute cached power. |
+| `unknown` | `stale_phase_minute` | Perific did not provide fresh minute data. | Wait and do not use stale power. |
+| `unavailable` | none or last known | The integration cannot fetch usable data or needs reauthentication. | Treat the source as offline and check logs or repairs. |
 
 The sensor exposes diagnostic attributes:
 
@@ -96,11 +102,16 @@ If setup fails:
 - Confirm Home Assistant can reach `https://api.enegic.com`.
 - Check Home Assistant logs for `custom_components.perific`.
 
-If the sensor is unavailable:
+If the sensor is `unknown`:
 
 - Check the `grid_power_status` attribute.
 - Wait for the Perific meter to report fresh minute data.
 - Improve meter Wi-Fi if Perific reporting is slow or intermittent.
+
+If the sensor is unavailable:
+
+- Confirm Home Assistant can reach `https://api.enegic.com`.
+- Check Home Assistant logs for `custom_components.perific`.
 
 If the API rejects the stored token, Home Assistant starts the normal
 reauthentication flow.
