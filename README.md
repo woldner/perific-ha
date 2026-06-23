@@ -27,7 +27,7 @@ that depends on an undocumented cloud API.
 
 ## Requirements
 
-- Home Assistant 2026.6.4 or newer.
+- Home Assistant 2026.5.3 or newer.
 - A Perific/Enegic account with at least one meter.
 - Network access from Home Assistant to `https://api.enegic.com`.
 
@@ -115,10 +115,13 @@ If the sensor is `unknown`:
 If the sensor is unavailable:
 
 - Confirm Home Assistant can reach `https://api.enegic.com`.
+- Complete any Home Assistant reauthentication prompt for the Perific
+  integration.
 - Check Home Assistant logs for `custom_components.perific`.
 
 If the API rejects the stored token, Home Assistant starts the normal
-reauthentication flow.
+reauthentication flow. Re-enter the Perific credentials in Home Assistant; do
+not edit stored tokens manually.
 
 ## API Contract
 

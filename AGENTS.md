@@ -38,6 +38,10 @@ repo-owned `uv run` checks instead of separate global linter installations.
 Expose observable meter facts with explicit units. Grid power for energy
 management must be watts unless a consuming interface documents another unit.
 
+When changing the HACS Home Assistant support floor, update `hacs.json`,
+README requirements, and the `minimum-homeassistant` dependency group together,
+then validate both normal tests and the minimum group.
+
 After changes that touch config flow, coordinator updates, sensor state,
 availability, or diagnostics, run focused tests. When live Home Assistant
 access is available, also run `scripts/smoke-ha-sensor.py` against the

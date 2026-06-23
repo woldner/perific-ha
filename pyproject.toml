@@ -7,6 +7,14 @@ requires-python = ">=3.14.2"
 license = "Apache-2.0"
 dependencies = []
 
+[tool.uv]
+conflicts = [
+  [
+    { group = "dev" },
+    { group = "minimum-homeassistant" },
+  ],
+]
+
 [tool.ruff]
 target-version = "py314"
 line-length = 88
@@ -89,10 +97,28 @@ output_format = "md"
 
 [dependency-groups]
 dev = [
+    { include-group = "test" },
     "aiohttp>=3.13.5,<3.14",
-    "homeassistant>=2026.6.4",
+    "homeassistant>=2026.5.3",
     "pre-commit>=4.6.0",
-    "pytest>=9.0.3,<9.1",
-    "pytest-homeassistant-custom-component>=0.13.340",
+    "pytest-homeassistant-custom-component>=0.13.332",
     "ruff>=0.15.18",
+]
+minimum-homeassistant = [
+    { include-group = "test" },
+    "aiohttp>=3.13.5,<3.14",
+    "homeassistant==2026.5.3",
+    "pytest-homeassistant-custom-component==0.13.332",
+]
+test = [
+    "pytest>=9.0.3,<9.1",
+    "pytest-aiohttp>=1.1.0",
+    "pytest-cov>=7.1.0",
+    "pytest-github-actions-annotate-failures>=0.4.0",
+    "pytest-picked>=0.5.1",
+    "pytest-socket>=0.7.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-unordered>=0.7.0",
+    "requests-mock>=1.12.1",
+    "respx>=0.23.1",
 ]

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from homeassistant import config_entries
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.perific.api import (
@@ -12,6 +13,7 @@ from custom_components.perific.api import (
     GRID_POWER_STATUS_READY,
     GRID_POWER_STATUS_STALE_PHASE_MINUTE,
     MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+    PerificAuthError,
     PerificClient,
     PerificDataError,
     PerificMeterData,
@@ -308,6 +310,33 @@ async def test_coordinator_loads_with_stale_packet_error_as_unknown_data(
     assert coordinator.data.timestamp == STALE_SAMPLE_TIMESTAMP
     assert accumulator.last_sample is None
     assert sample_store.saved_states == []
+
+
+async def test_coordinator_auth_failure_starts_home_assistant_reauth(
+    hass: HomeAssistant,
+    enable_custom_integrations: None,
+) -> None:
+    assert enable_custom_integrations is None
+    entry = _mock_entry(hass)
+    client = FakePerificClient([PerificAuthError()])
+    coordinator = _coordinator(
+        hass,
+        entry,
+        CoordinatorTestRuntime(
+            client,
+            PerificGridPowerAccumulator(),
+            FakeSampleStore(),
+        ),
+    )
+
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    active_reauth_flows = list(
+        entry.async_get_active_flows(hass, {config_entries.SOURCE_REAUTH}),
+    )
+    assert len(active_reauth_flows) == 1
+    assert active_reauth_flows[0]["step_id"] == "reauth_confirm"
 
 
 async def test_coordinator_clears_stored_data_on_stale_packet_error(

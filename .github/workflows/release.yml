@@ -41,6 +41,28 @@ jobs:
       - name: Test
         run: uv run pytest
 
+  minimum-homeassistant:
+    name: Minimum Home Assistant
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          version: "0.11.16"
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Test minimum supported Home Assistant
+        run: >
+          uv run --isolated --locked
+          --only-group minimum-homeassistant
+          python -m pytest tests
+
   hacs:
     name: HACS
     runs-on: ubuntu-latest
@@ -53,12 +75,24 @@ jobs:
         with:
           category: integration
 
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate Home Assistant integration metadata
+        uses: home-assistant/actions/hassfest@master
+
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
     needs:
       - validate
+      - minimum-homeassistant
       - hacs
+      - hassfest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: false
