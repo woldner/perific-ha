@@ -10,7 +10,8 @@ endorsed by, or supported by Perific or Enegic.
 - A Home Assistant UI setup flow for Perific accounts.
 - Native Perific token authentication stored in the Home Assistant config entry.
 - Reauthentication through Home Assistant's standard reauth flow.
-- One grid power sensor per selected Perific meter.
+- One grid power sensor and one grid power status sensor per selected Perific
+  meter.
 - Cloud polling through the Perific/Enegic API.
 
 The first supported entity is whole-home grid power in watts for local energy
@@ -68,29 +69,32 @@ entry.
 
 ## Entity Behavior
 
-The integration creates one grid power sensor for each selected meter. For the
-first meter, the default entity ID is:
+The integration creates grid power entities for each selected meter. For the
+first meter, the default entity IDs are:
 
 - `sensor.perific_meter_grid_power`
+- `sensor.perific_meter_grid_power_status`
 
 The sensor reports net grid power in watts. It uses consecutive Perific
 `PhaseMinute` import/export counter samples. It does not publish a guessed or
-stale value when the required samples are missing or too old.
+stale value when the required samples are missing or too old. Positive watts
+mean net import from the grid. Negative watts mean net export to the grid.
 
 If the integration is working but cannot safely calculate watts yet, the sensor
-state is `unknown` and `grid_power_status` explains why. If the integration
-cannot fetch data or authenticate, Home Assistant marks the entity unavailable.
-When fresh `PhaseMinute` data resumes, the sensor returns to numeric watts
+state is `unknown` and the status sensor explains why. If the integration cannot
+fetch data or authenticate, Home Assistant marks the entities unavailable. When
+fresh `PhaseMinute` data resumes, the sensor returns to numeric watts
 automatically after enough consecutive samples exist to calculate a safe delta.
 
-| State | `grid_power_status` | Meaning | Consumer behavior |
+| Grid power state | Status sensor | Meaning | Consumer behavior |
 | --- | --- | --- | --- |
 | Numeric watts | `ready` | A fresh grid-power value was calculated from consecutive meter samples. | Use the sensor value. |
 | `unknown` | `baseline_required` | The integration has a meter sample and needs another valid sample before calculating watts. | Wait and do not substitute cached power. |
 | `unknown` | `stale_phase_minute` | Perific did not provide fresh minute data. | Wait and do not use stale power. |
 | `unavailable` | none or last known | The integration cannot fetch usable data or needs reauthentication. | Treat the source as offline and check logs or repairs. |
 
-The sensor exposes diagnostic attributes:
+The grid power sensor also keeps these diagnostic attributes for compatibility
+and support:
 
 - `grid_power_status`
 - `source_timestamp`, which is also set for rejected stale packets when Perific
@@ -106,9 +110,9 @@ If setup fails:
 
 If the sensor is `unknown`:
 
-- Check the `grid_power_status` attribute.
-- Check `source_timestamp` when `grid_power_status` is `stale_phase_minute` to
-  see the rejected packet timestamp.
+- Check `sensor.perific_meter_grid_power_status`.
+- Check `source_timestamp` when the status is `stale_phase_minute` to see the
+  rejected packet timestamp.
 - Wait for the Perific meter to report fresh minute data.
 - Improve meter Wi-Fi if Perific reporting is slow or intermittent.
 
@@ -161,6 +165,13 @@ Assistant access is available:
 ```sh
 HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
   uv run python scripts/smoke-ha-sensor.py --samples 11 --interval 60
+```
+
+For evcc readiness, require at least one numeric `ready` sample:
+
+```sh
+HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
+  uv run python scripts/smoke-ha-sensor.py --samples 11 --interval 60 --require-ready
 ```
 
 The smoke check reads only `sensor.perific_meter_grid_power` from Home

@@ -12,7 +12,14 @@ from homeassistant.const import UnitOfPower
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ITEM_ID, CONF_USER_ID, DOMAIN, SENSOR_GRID_POWER_KEY
+from .api import GRID_POWER_STATUS_OPTIONS
+from .const import (
+    CONF_ITEM_ID,
+    CONF_USER_ID,
+    DOMAIN,
+    SENSOR_GRID_POWER_KEY,
+    SENSOR_GRID_POWER_STATUS_KEY,
+)
 from .coordinator import PerificDataUpdateCoordinator
 
 if TYPE_CHECKING:
@@ -30,6 +37,12 @@ SENSOR_DESCRIPTIONS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    SensorEntityDescription(
+        key=SENSOR_GRID_POWER_STATUS_KEY,
+        translation_key=SENSOR_GRID_POWER_STATUS_KEY,
+        device_class=SensorDeviceClass.ENUM,
+        options=list(GRID_POWER_STATUS_OPTIONS),
+    ),
 )
 
 
@@ -40,12 +53,12 @@ async def async_setup_entry(
 ) -> None:
     coordinator = entry.runtime_data.coordinator
     async_add_entities(
-        PerificGridPowerSensor(coordinator, entry, description)
+        _sensor_for_description(coordinator, entry, description)
         for description in SENSOR_DESCRIPTIONS
     )
 
 
-class PerificGridPowerSensor(
+class PerificSensor(
     CoordinatorEntity[PerificDataUpdateCoordinator],
     SensorEntity,
 ):
@@ -69,6 +82,20 @@ class PerificGridPowerSensor(
         )
 
     @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data is not None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, str | int | None] | None:
+        if self.coordinator.data is None:
+            return None
+        return {
+            "source_timestamp": self.coordinator.data.timestamp,
+        }
+
+
+class PerificGridPowerSensor(PerificSensor):
+    @property
     def native_value(self) -> float | None:
         if self.coordinator.data is None:
             return None
@@ -79,10 +106,24 @@ class PerificGridPowerSensor(
         if self.coordinator.data is None:
             return None
         return {
+            **(super().extra_state_attributes or {}),
             "grid_power_status": self.coordinator.data.status,
-            "source_timestamp": self.coordinator.data.timestamp,
         }
 
+
+class PerificGridPowerStatusSensor(PerificSensor):
     @property
-    def available(self) -> bool:
-        return super().available and self.coordinator.data is not None
+    def native_value(self) -> str | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.status
+
+
+def _sensor_for_description(
+    coordinator: PerificDataUpdateCoordinator,
+    entry: ConfigEntry,
+    description: SensorEntityDescription,
+) -> PerificSensor:
+    if description.key == SENSOR_GRID_POWER_STATUS_KEY:
+        return PerificGridPowerStatusSensor(coordinator, entry, description)
+    return PerificGridPowerSensor(coordinator, entry, description)

@@ -17,3 +17,4 @@ CONF_USERNAME = "username"
 CONF_USER_ID = "user_id"
 
 SENSOR_GRID_POWER_KEY = "grid_power"
+SENSOR_GRID_POWER_STATUS_KEY = "grid_power_status"

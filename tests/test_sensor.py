@@ -8,14 +8,20 @@ import pytest
 
 from custom_components.perific.api import (
     GRID_POWER_STATUS_BASELINE_REQUIRED,
+    GRID_POWER_STATUS_OPTIONS,
     GRID_POWER_STATUS_READY,
     GRID_POWER_STATUS_STALE_PHASE_MINUTE,
     PerificMeterData,
 )
-from custom_components.perific.const import CONF_ITEM_ID, CONF_USER_ID
+from custom_components.perific.const import (
+    CONF_ITEM_ID,
+    CONF_USER_ID,
+    SENSOR_GRID_POWER_STATUS_KEY,
+)
 from custom_components.perific.sensor import (
     SENSOR_DESCRIPTIONS,
     PerificGridPowerSensor,
+    PerificGridPowerStatusSensor,
 )
 
 if TYPE_CHECKING:
@@ -103,6 +109,37 @@ def test_grid_power_sensor_unavailable_before_coordinator_data() -> None:
     assert sensor.extra_state_attributes is None
 
 
+def test_grid_power_status_sensor_reports_status_as_enum() -> None:
+    sensor = _status_sensor(
+        data=PerificMeterData(
+            item_id="meter-a",
+            grid_power_w=None,
+            timestamp=SOURCE_TIMESTAMP,
+            status=GRID_POWER_STATUS_BASELINE_REQUIRED,
+        ),
+    )
+
+    assert sensor.available
+    assert sensor.native_value == GRID_POWER_STATUS_BASELINE_REQUIRED
+    assert set(sensor.entity_description.options or []) == set(
+        GRID_POWER_STATUS_OPTIONS
+    )
+
+
+def test_grid_power_status_sensor_unavailable_when_coordinator_update_failed() -> None:
+    sensor = _status_sensor(
+        data=PerificMeterData(
+            item_id="meter-a",
+            grid_power_w=GRID_POWER_W,
+            timestamp=SOURCE_TIMESTAMP,
+            status=GRID_POWER_STATUS_READY,
+        ),
+        last_update_success=False,
+    )
+
+    assert not sensor.available
+
+
 @dataclass(slots=True)
 class FakeCoordinator:
     data: PerificMeterData | None
@@ -127,4 +164,30 @@ def _sensor(
         ),
         cast("ConfigEntry", entry),
         SENSOR_DESCRIPTIONS[0],
+    )
+
+
+def _status_sensor(
+    *,
+    data: PerificMeterData | None,
+    last_update_success: bool = True,
+) -> PerificGridPowerStatusSensor:
+    entry = SimpleNamespace(
+        data={
+            CONF_USER_ID: "user-1",
+            CONF_ITEM_ID: "meter-a",
+        },
+    )
+    description = next(
+        description
+        for description in SENSOR_DESCRIPTIONS
+        if description.key == SENSOR_GRID_POWER_STATUS_KEY
+    )
+    return PerificGridPowerStatusSensor(
+        cast(
+            "PerificDataUpdateCoordinator",
+            FakeCoordinator(data=data, last_update_success=last_update_success),
+        ),
+        cast("ConfigEntry", entry),
+        description,
     )

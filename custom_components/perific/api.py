@@ -25,6 +25,11 @@ FIELD_PHASE_MINUTE_STALE = "LatestPackets.PhaseMinute.ts.stale"
 GRID_POWER_STATUS_BASELINE_REQUIRED = "baseline_required"
 GRID_POWER_STATUS_READY = "ready"
 GRID_POWER_STATUS_STALE_PHASE_MINUTE = "stale_phase_minute"
+GRID_POWER_STATUS_OPTIONS = (
+    GRID_POWER_STATUS_READY,
+    GRID_POWER_STATUS_BASELINE_REQUIRED,
+    GRID_POWER_STATUS_STALE_PHASE_MINUTE,
+)
 
 type JsonPrimitive = bool | int | float | str | None
 type JsonValue = JsonPrimitive | list[JsonValue] | dict[str, JsonValue]

@@ -309,6 +309,23 @@ def test_calculate_grid_power_w_subtracts_export_counter_delta() -> None:
     assert calculate_grid_power_w(previous, current) == pytest.approx(4500.0)
 
 
+def test_calculate_grid_power_w_reports_export_as_negative_power() -> None:
+    previous = PerificMeterSample(
+        item_id="67890",
+        import_energy_kwh=1000.000,
+        export_energy_kwh=10.000,
+        timestamp=1782120000000,
+    )
+    current = PerificMeterSample(
+        item_id="67890",
+        import_energy_kwh=1000.025,
+        export_energy_kwh=10.100,
+        timestamp=1782120060000,
+    )
+
+    assert calculate_grid_power_w(previous, current) == pytest.approx(-4500.0)
+
+
 def test_calculate_grid_power_w_rejects_non_newer_sample() -> None:
     previous = PerificMeterSample(
         item_id="67890",

@@ -54,6 +54,7 @@ def test_classifier_accepts_numeric_state() -> None:
     )
 
     assert result.is_ok
+    assert result.is_ready
 
 
 def test_classifier_rejects_numeric_state_without_ready_status() -> None:
@@ -64,6 +65,7 @@ def test_classifier_rejects_numeric_state_without_ready_status() -> None:
     )
 
     assert not result.is_ok
+    assert not result.is_ready
 
 
 def test_classifier_accepts_expected_unknown_states_with_timestamps() -> None:
@@ -78,6 +80,8 @@ def test_classifier_accepts_expected_unknown_states_with_timestamps() -> None:
 
     assert baseline.is_ok
     assert stale.is_ok
+    assert not baseline.is_ready
+    assert not stale.is_ready
 
 
 def test_classifier_rejects_unavailable_state() -> None:
@@ -126,3 +130,29 @@ def test_classifier_accepts_expected_unknown_without_timestamp() -> None:
     )
 
     assert result.is_ok
+
+
+def test_contract_smoke_can_pass_with_expected_waiting_state() -> None:
+    smoke = load_smoke_module()
+
+    classifications = [
+        smoke.classify_reading(
+            reading(state="unknown", grid_power_status="baseline_required"),
+        ),
+    ]
+
+    assert smoke.smoke_succeeds(classifications, require_ready=False)
+
+
+def test_readiness_smoke_requires_numeric_ready_state() -> None:
+    smoke = load_smoke_module()
+
+    waiting = smoke.classify_reading(
+        reading(state="unknown", grid_power_status="baseline_required"),
+    )
+    ready = smoke.classify_reading(
+        reading(state="123.4", grid_power_status="ready"),
+    )
+
+    assert not smoke.smoke_succeeds([waiting], require_ready=True)
+    assert smoke.smoke_succeeds([waiting, ready], require_ready=True)

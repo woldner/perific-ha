@@ -40,6 +40,14 @@
     "sensor": {
       "grid_power": {
         "name": "Grid power"
+      },
+      "grid_power_status": {
+        "name": "Grid power status",
+        "state": {
+          "baseline_required": "Waiting for baseline",
+          "ready": "Ready",
+          "stale_phase_minute": "Waiting for fresh meter data"
+        }
       }
     }
   }

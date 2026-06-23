@@ -59,11 +59,13 @@ class SensorReading:
 class Classification:
     classification: str
     is_ok: bool
+    is_ready: bool = False
 
 
 def classify_reading(reading: SensorReading) -> Classification:
     classification = "unexpected_state"
     is_ok = False
+    is_ready = False
 
     if reading.unit_of_measurement != EXPECTED_UNIT_OF_MEASUREMENT:
         classification = "missing_watt_unit"
@@ -79,10 +81,29 @@ def classify_reading(reading: SensorReading) -> Classification:
         if reading.grid_power_status == READY_STATUS:
             classification = READY_STATUS
             is_ok = True
+            is_ready = True
         else:
             classification = "numeric_missing_ready_status"
 
-    return Classification(classification=classification, is_ok=is_ok)
+    return Classification(
+        classification=classification,
+        is_ok=is_ok,
+        is_ready=is_ready,
+    )
+
+
+def smoke_succeeds(
+    classifications: list[Classification],
+    *,
+    require_ready: bool,
+) -> bool:
+    if not classifications:
+        return False
+    if not all(classification.is_ok for classification in classifications):
+        return False
+    return not require_ready or any(
+        classification.is_ready for classification in classifications
+    )
 
 
 def source_timestamp_age_seconds(reading: SensorReading) -> int | None:
@@ -165,6 +186,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_SECONDS)
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="Fail unless at least one sample is numeric watts with status ready.",
+    )
     return parser.parse_args()
 
 
@@ -187,10 +213,10 @@ def main() -> int:
         sys.stderr.write(f"{validation_error}\n")
         return EXIT_USAGE
 
-    last_reading: SensorReading | None = None
+    classifications: list[Classification] = []
     for index in range(args.samples):
         try:
-            last_reading = fetch_reading(
+            reading = fetch_reading(
                 ha_url=args.ha_url,
                 token=args.token,
                 entity_id=args.entity_id,
@@ -200,16 +226,33 @@ def main() -> int:
             sys.stderr.write(f"{err}\n")
             return EXIT_FAILURE
 
-        output = {"sample": index + 1, **last_reading.to_output()}
+        classification = classify_reading(reading)
+        classifications.append(classification)
+        output = {
+            "evcc_ready": classification.is_ready,
+            "sample": index + 1,
+            **reading.to_output(),
+        }
         sys.stdout.write(f"{json.dumps(output, sort_keys=True)}\n")
-        if not classify_reading(last_reading).is_ok:
+        if not classification.is_ok:
             return EXIT_FAILURE
         if index + 1 < args.samples:
             time.sleep(args.interval)
 
-    if last_reading is None:
-        return EXIT_FAILURE
-    return 0 if classify_reading(last_reading).is_ok else EXIT_FAILURE
+    ready_samples = sum(classification.is_ready for classification in classifications)
+    summary = {
+        "evcc_ready": ready_samples > 0,
+        "ready_samples": ready_samples,
+        "require_ready": args.require_ready,
+        "samples": len(classifications),
+        "summary": "smoke_result",
+    }
+    sys.stdout.write(f"{json.dumps(summary, sort_keys=True)}\n")
+    return (
+        0
+        if smoke_succeeds(classifications, require_ready=args.require_ready)
+        else EXIT_FAILURE
+    )
 
 
 def _is_number(value: str) -> bool:
