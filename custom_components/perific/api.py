@@ -60,9 +60,10 @@ class PerificResponseError(PerificError):
 class PerificDataError(PerificError):
     """Perific API returned a malformed or unsupported payload."""
 
-    def __init__(self, field: str) -> None:
+    def __init__(self, field: str, *, timestamp: int | None = None) -> None:
         super().__init__("perific_data_failed")
         self.field = field
+        self.timestamp = timestamp
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,4 +351,4 @@ def _raise_if_stale(
         return
     max_age_ms = max_age_seconds * MILLISECONDS_PER_SECOND
     if timestamp_ms > now_ms + max_age_ms or now_ms - timestamp_ms > max_age_ms:
-        raise PerificDataError(FIELD_PHASE_MINUTE_STALE)
+        raise PerificDataError(FIELD_PHASE_MINUTE_STALE, timestamp=timestamp_ms)

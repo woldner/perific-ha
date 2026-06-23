@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from custom_components.perific.coordinator import PerificDataUpdateCoordinator
 
 GRID_POWER_W = 1234.5
+STALE_SOURCE_TIMESTAMP = 1782120000000
 SOURCE_TIMESTAMP = 1782120060000
 
 
@@ -68,7 +69,7 @@ def test_grid_power_sensor_keeps_stale_minute_available_without_value() -> None:
         data=PerificMeterData(
             item_id="meter-a",
             grid_power_w=None,
-            timestamp=None,
+            timestamp=STALE_SOURCE_TIMESTAMP,
             status=GRID_POWER_STATUS_STALE_PHASE_MINUTE,
         ),
     )
@@ -77,7 +78,7 @@ def test_grid_power_sensor_keeps_stale_minute_available_without_value() -> None:
     assert sensor.native_value is None
     assert sensor.extra_state_attributes == {
         "grid_power_status": GRID_POWER_STATUS_STALE_PHASE_MINUTE,
-        "source_timestamp": None,
+        "source_timestamp": STALE_SOURCE_TIMESTAMP,
     }
 
 

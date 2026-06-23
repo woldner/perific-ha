@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from custom_components.perific.store import PerificGridPowerSampleStore
 
 SECOND_SAMPLE_TIMESTAMP = 1782120060000
+STALE_SAMPLE_TIMESTAMP = 1782120000000
 
 
 class FakePerificClient:
@@ -279,7 +280,10 @@ async def test_coordinator_loads_with_stale_packet_error_as_unknown_data(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)
-    stale_error = PerificDataError(FIELD_PHASE_MINUTE_STALE)
+    stale_error = PerificDataError(
+        FIELD_PHASE_MINUTE_STALE,
+        timestamp=STALE_SAMPLE_TIMESTAMP,
+    )
     client = FakePerificClient([stale_error])
     accumulator = PerificGridPowerAccumulator()
     sample_store = FakeSampleStore()
@@ -301,7 +305,7 @@ async def test_coordinator_loads_with_stale_packet_error_as_unknown_data(
     assert coordinator.data.item_id == "meter-a"
     assert coordinator.data.grid_power_w is None
     assert coordinator.data.status == GRID_POWER_STATUS_STALE_PHASE_MINUTE
-    assert coordinator.data.timestamp is None
+    assert coordinator.data.timestamp == STALE_SAMPLE_TIMESTAMP
     assert accumulator.last_sample is None
     assert sample_store.saved_states == []
 
@@ -319,7 +323,10 @@ async def test_coordinator_clears_stored_data_on_stale_packet_error(
         grid_power_w=10020.0,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
-    stale_error = PerificDataError(FIELD_PHASE_MINUTE_STALE)
+    stale_error = PerificDataError(
+        FIELD_PHASE_MINUTE_STALE,
+        timestamp=STALE_SAMPLE_TIMESTAMP,
+    )
     client = FakePerificClient([stale_error])
     accumulator = PerificGridPowerAccumulator(
         last_data=stored_data,
@@ -337,7 +344,7 @@ async def test_coordinator_clears_stored_data_on_stale_packet_error(
     assert coordinator.last_update_success
     assert coordinator.data.grid_power_w is None
     assert coordinator.data.status == GRID_POWER_STATUS_STALE_PHASE_MINUTE
-    assert coordinator.data.timestamp is None
+    assert coordinator.data.timestamp == STALE_SAMPLE_TIMESTAMP
     assert accumulator.last_sample == stored_sample
     assert accumulator.last_data is None
     assert sample_store.saved_states == [
@@ -440,6 +447,36 @@ async def test_coordinator_diagnostics_explain_unknown_grid_power(
         "last_update_success": True,
         "phase_minute_max_age_seconds": MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
         "source_timestamp_age_seconds": 30,
+    }
+
+
+async def test_coordinator_diagnostics_explain_stale_grid_power(
+    hass: HomeAssistant,
+) -> None:
+    entry = _mock_entry(hass)
+    stale_error = PerificDataError(
+        FIELD_PHASE_MINUTE_STALE,
+        timestamp=STALE_SAMPLE_TIMESTAMP,
+    )
+    coordinator = _coordinator(
+        hass,
+        entry,
+        CoordinatorTestRuntime(
+            FakePerificClient([stale_error]),
+            PerificGridPowerAccumulator(),
+            FakeSampleStore(),
+            now_ms=1782120360000,
+        ),
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.diagnostics() == {
+        "grid_power_status": GRID_POWER_STATUS_STALE_PHASE_MINUTE,
+        "has_grid_power": False,
+        "last_update_success": True,
+        "phase_minute_max_age_seconds": MAX_PHASE_MINUTE_PACKET_AGE_SECONDS,
+        "source_timestamp_age_seconds": 360,
     }
 
 

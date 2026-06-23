@@ -75,9 +75,10 @@ hwo` as instantaneous watts. Derive net grid power from consecutive
 
 Reject stale `PhaseMinute.ts` values instead of publishing unbounded stale
 power. The runtime currently treats `PhaseMinute` packets older than 5 minutes
-as stale and resets the delta baseline after overlong sample gaps. Counter
-decreases start a new candidate baseline and require another monotonic sample
-before publishing power.
+as stale, exposes the rejected packet timestamp when available, and resets the
+delta baseline after overlong sample gaps. Counter decreases start a new
+candidate baseline and require another monotonic sample before publishing
+power.
 `PhaseRealTime.data.hiavg[]` and `huavg[]` provide current and voltage
 telemetry, but they do not provide net import/export direction and are not the
 primary grid-power source.

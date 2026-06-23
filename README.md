@@ -91,7 +91,8 @@ cannot fetch data or authenticate, Home Assistant marks the entity unavailable.
 The sensor exposes diagnostic attributes:
 
 - `grid_power_status`
-- `source_timestamp`
+- `source_timestamp`, which is also set for rejected stale packets when Perific
+  provides a packet timestamp
 
 ## Troubleshooting
 
@@ -104,6 +105,8 @@ If setup fails:
 If the sensor is `unknown`:
 
 - Check the `grid_power_status` attribute.
+- Check `source_timestamp` when `grid_power_status` is `stale_phase_minute` to
+  see the rejected packet timestamp.
 - Wait for the Perific meter to report fresh minute data.
 - Improve meter Wi-Fi if Perific reporting is slow or intermittent.
 

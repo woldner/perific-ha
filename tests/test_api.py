@@ -16,7 +16,9 @@ from custom_components.perific.meter import (
     calculate_grid_power_w,
 )
 
+FIRST_SAMPLE_TIMESTAMP = 1782120000000
 SECOND_SAMPLE_TIMESTAMP = 1782120060000
+STALE_SAMPLE_TIMESTAMP = FIRST_SAMPLE_TIMESTAMP
 
 
 def test_parse_auth_response() -> None:
@@ -45,14 +47,14 @@ def test_parse_latest_meter_sample_reads_minute_energy_counters() -> None:
                         "hiavg": [10.0, 5.0, 2.5],
                         "huavg": [230.0, 231.0, 232.0],
                     },
-                    "ts": 1782120000000,
+                    "ts": FIRST_SAMPLE_TIMESTAMP,
                 },
                 "PhaseMinute": {
                     "data": {
                         "hwi": 3120.5,
                         "hwo": 120,
                     },
-                    "ts": 1782120000000,
+                    "ts": FIRST_SAMPLE_TIMESTAMP,
                 },
             },
         },
@@ -62,7 +64,7 @@ def test_parse_latest_meter_sample_reads_minute_energy_counters() -> None:
         item_id="67890",
         import_energy_kwh=3120.5,
         export_energy_kwh=120.0,
-        timestamp=1782120000000,
+        timestamp=FIRST_SAMPLE_TIMESTAMP,
     )
 
 
@@ -229,18 +231,20 @@ def test_parse_latest_meter_sample_rejects_stale_minute_packet() -> None:
                         "hwi": 1000,
                         "hwo": 10,
                     },
-                    "ts": 1782120000000,
+                    "ts": STALE_SAMPLE_TIMESTAMP,
                 },
             },
         },
     ]
 
-    with pytest.raises(PerificDataError):
+    with pytest.raises(PerificDataError) as err:
         parse_latest_meter_sample(
             payload,
             max_age_seconds=120,
             now_ms=1782120121001,
         )
+
+    assert err.value.timestamp == STALE_SAMPLE_TIMESTAMP
 
 
 def test_parse_latest_meter_sample_can_ignore_freshness_for_meter_discovery() -> None:

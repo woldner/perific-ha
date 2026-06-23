@@ -83,14 +83,17 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
             raise ConfigEntryAuthFailed(AUTH_FAILURE_MESSAGE) from err
         except PerificDataError as err:
             if err.field == FIELD_PHASE_MINUTE_STALE:
-                return await self._async_clear_stale_grid_power()
+                return await self._async_clear_stale_grid_power(err)
             raise UpdateFailed(UPDATE_FAILURE_MESSAGE) from err
         except PerificError as err:
             raise UpdateFailed(UPDATE_FAILURE_MESSAGE) from err
         else:
             return data
 
-    async def _async_clear_stale_grid_power(self) -> PerificMeterData:
+    async def _async_clear_stale_grid_power(
+        self,
+        err: PerificDataError,
+    ) -> PerificMeterData:
         accumulator = self._runtime.grid_power_accumulator
         previous_data = accumulator.last_data
         accumulator.last_data = None
@@ -105,7 +108,7 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
         return PerificMeterData(
             item_id=self._runtime.item_id,
             grid_power_w=None,
-            timestamp=None,
+            timestamp=err.timestamp,
             status=GRID_POWER_STATUS_STALE_PHASE_MINUTE,
         )
 
