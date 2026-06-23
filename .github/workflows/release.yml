@@ -83,7 +83,7 @@ jobs:
           if [ "$release_count" = "0" ]; then
             {
               echo "No GitHub Release exists yet."
-              echo "Create the initial v0.1.0 release, then pushes to main can release automatically."
+              echo "Create an initial GitHub Release baseline, then pushes to main can release automatically."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "exists=false" >> "$GITHUB_OUTPUT"
             exit 0
