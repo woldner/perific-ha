@@ -156,3 +156,36 @@ def test_readiness_smoke_requires_numeric_ready_state() -> None:
 
     assert not smoke.smoke_succeeds([waiting], require_ready=True)
     assert smoke.smoke_succeeds([waiting, ready], require_ready=True)
+
+
+def test_readiness_smoke_requires_final_sample_to_be_ready() -> None:
+    smoke = load_smoke_module()
+
+    ready = smoke.classify_reading(
+        reading(state="123.4", grid_power_status="ready"),
+    )
+    stale = smoke.classify_reading(
+        reading(state="unknown", grid_power_status="stale_phase_minute"),
+    )
+
+    assert not smoke.smoke_succeeds([ready, stale], require_ready=True)
+
+
+def test_readiness_summary_reports_current_ready_state() -> None:
+    smoke = load_smoke_module()
+
+    ready = smoke.classify_reading(
+        reading(state="123.4", grid_power_status="ready"),
+    )
+    stale = smoke.classify_reading(
+        reading(state="unknown", grid_power_status="stale_phase_minute"),
+    )
+
+    assert smoke.smoke_summary([ready, stale], require_ready=True) == {
+        "evcc_ready": False,
+        "ready_samples": 1,
+        "require_ready": True,
+        "samples": 2,
+        "smoke_passed": False,
+        "summary": "smoke_result",
+    }

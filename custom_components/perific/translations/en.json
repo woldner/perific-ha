@@ -44,10 +44,13 @@
       "grid_power_status": {
         "name": "Grid power status",
         "state": {
-          "baseline_required": "Waiting for baseline",
+          "baseline_required": "Waiting for consecutive meter samples",
           "ready": "Ready",
           "stale_phase_minute": "Waiting for fresh meter data"
         }
+      },
+      "last_meter_sample": {
+        "name": "Last meter sample"
       }
     }
   }

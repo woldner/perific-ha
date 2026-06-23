@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import (
@@ -8,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfPower
+from homeassistant.const import EntityCategory, UnitOfPower
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -19,6 +20,7 @@ from .const import (
     DOMAIN,
     SENSOR_GRID_POWER_KEY,
     SENSOR_GRID_POWER_STATUS_KEY,
+    SENSOR_LAST_METER_SAMPLE_KEY,
 )
 from .coordinator import PerificDataUpdateCoordinator
 
@@ -42,6 +44,12 @@ SENSOR_DESCRIPTIONS = (
         translation_key=SENSOR_GRID_POWER_STATUS_KEY,
         device_class=SensorDeviceClass.ENUM,
         options=list(GRID_POWER_STATUS_OPTIONS),
+    ),
+    SensorEntityDescription(
+        key=SENSOR_LAST_METER_SAMPLE_KEY,
+        translation_key=SENSOR_LAST_METER_SAMPLE_KEY,
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
 
@@ -119,6 +127,17 @@ class PerificGridPowerStatusSensor(PerificSensor):
         return self.coordinator.data.status
 
 
+class PerificLastMeterSampleSensor(PerificSensor):
+    @property
+    def native_value(self) -> datetime | None:
+        if self.coordinator.data is None or self.coordinator.data.timestamp is None:
+            return None
+        return datetime.fromtimestamp(
+            self.coordinator.data.timestamp / 1000,
+            tz=UTC,
+        )
+
+
 def _sensor_for_description(
     coordinator: PerificDataUpdateCoordinator,
     entry: ConfigEntry,
@@ -126,4 +145,6 @@ def _sensor_for_description(
 ) -> PerificSensor:
     if description.key == SENSOR_GRID_POWER_STATUS_KEY:
         return PerificGridPowerStatusSensor(coordinator, entry, description)
+    if description.key == SENSOR_LAST_METER_SAMPLE_KEY:
+        return PerificLastMeterSampleSensor(coordinator, entry, description)
     return PerificGridPowerSensor(coordinator, entry, description)

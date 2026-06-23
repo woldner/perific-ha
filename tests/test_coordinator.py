@@ -239,6 +239,84 @@ async def test_coordinator_clears_stale_stored_data_for_repeated_sample(
     ]
 
 
+async def test_coordinator_recovers_from_stale_packet_with_new_baseline(
+    hass: HomeAssistant,
+) -> None:
+    entry = _mock_entry(hass)
+    stored_sample = _meter_sample(
+        import_energy_kwh=1000.100,
+        timestamp=SECOND_SAMPLE_TIMESTAMP,
+    )
+    stored_data = PerificMeterData(
+        item_id="meter-a",
+        grid_power_w=10020.0,
+        timestamp=SECOND_SAMPLE_TIMESTAMP,
+    )
+    recovery_sample = _meter_sample(
+        import_energy_kwh=1000.600,
+        timestamp=SECOND_SAMPLE_TIMESTAMP + 360_000,
+    )
+    stale_error = PerificDataError(
+        FIELD_PHASE_MINUTE_STALE,
+        timestamp=SECOND_SAMPLE_TIMESTAMP,
+    )
+    accumulator = PerificGridPowerAccumulator(
+        last_data=stored_data,
+        last_sample=stored_sample,
+    )
+    client = FakePerificClient(
+        [
+            stale_error,
+            recovery_sample,
+            recovery_sample,
+        ],
+    )
+    sample_store = FakeSampleStore()
+    coordinator = _coordinator(
+        hass,
+        entry,
+        CoordinatorTestRuntime(
+            client,
+            accumulator,
+            sample_store,
+            now_ms=recovery_sample.timestamp + 60_000,
+        ),
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success
+    assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_STALE_PHASE_MINUTE
+    assert coordinator.data.timestamp == SECOND_SAMPLE_TIMESTAMP
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success
+    assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
+    assert coordinator.data.timestamp == recovery_sample.timestamp
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success
+    assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
+    assert coordinator.data.timestamp == recovery_sample.timestamp
+    assert accumulator.last_sample == recovery_sample
+    assert accumulator.last_data is None
+    assert sample_store.saved_states == [
+        (
+            entry.entry_id,
+            PerificStoredGridPowerState(sample=stored_sample, data=None),
+        ),
+        (
+            entry.entry_id,
+            PerificStoredGridPowerState(sample=recovery_sample, data=None),
+        ),
+    ]
+
+
 async def test_coordinator_resets_expired_baseline_without_setup_failure(
     hass: HomeAssistant,
 ) -> None:

@@ -101,9 +101,27 @@ def smoke_succeeds(
         return False
     if not all(classification.is_ok for classification in classifications):
         return False
-    return not require_ready or any(
-        classification.is_ready for classification in classifications
-    )
+    return not require_ready or classifications[-1].is_ready
+
+
+def smoke_summary(
+    classifications: list[Classification],
+    *,
+    require_ready: bool,
+) -> dict[str, object]:
+    ready_samples = sum(classification.is_ready for classification in classifications)
+    current_ready = classifications[-1].is_ready if classifications else False
+    return {
+        "evcc_ready": current_ready,
+        "ready_samples": ready_samples,
+        "require_ready": require_ready,
+        "samples": len(classifications),
+        "smoke_passed": smoke_succeeds(
+            classifications,
+            require_ready=require_ready,
+        ),
+        "summary": "smoke_result",
+    }
 
 
 def source_timestamp_age_seconds(reading: SensorReading) -> int | None:
@@ -189,7 +207,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--require-ready",
         action="store_true",
-        help="Fail unless at least one sample is numeric watts with status ready.",
+        help="Fail unless the final sample is numeric watts with status ready.",
     )
     return parser.parse_args()
 
@@ -239,20 +257,9 @@ def main() -> int:
         if index + 1 < args.samples:
             time.sleep(args.interval)
 
-    ready_samples = sum(classification.is_ready for classification in classifications)
-    summary = {
-        "evcc_ready": ready_samples > 0,
-        "ready_samples": ready_samples,
-        "require_ready": args.require_ready,
-        "samples": len(classifications),
-        "summary": "smoke_result",
-    }
+    summary = smoke_summary(classifications, require_ready=args.require_ready)
     sys.stdout.write(f"{json.dumps(summary, sort_keys=True)}\n")
-    return (
-        0
-        if smoke_succeeds(classifications, require_ready=args.require_ready)
-        else EXIT_FAILURE
-    )
+    return 0 if bool(summary["smoke_passed"]) else EXIT_FAILURE
 
 
 def _is_number(value: str) -> bool:

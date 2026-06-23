@@ -74,6 +74,7 @@ first meter, the default entity IDs are:
 
 - `sensor.perific_meter_grid_power`
 - `sensor.perific_meter_grid_power_status`
+- `sensor.perific_meter_last_meter_sample`
 
 The sensor reports net grid power in watts. It uses consecutive Perific
 `PhaseMinute` import/export counter samples. It does not publish a guessed or
@@ -89,9 +90,13 @@ automatically after enough consecutive samples exist to calculate a safe delta.
 | Grid power state | Status sensor | Meaning | Consumer behavior |
 | --- | --- | --- | --- |
 | Numeric watts | `ready` | A fresh grid-power value was calculated from consecutive meter samples. | Use the sensor value. |
-| `unknown` | `baseline_required` | The integration has a meter sample and needs another valid sample before calculating watts. | Wait and do not substitute cached power. |
+| `unknown` | `baseline_required` | The integration needs consecutive fresh meter samples before calculating watts. | Wait and do not substitute cached power. |
 | `unknown` | `stale_phase_minute` | Perific did not provide fresh minute data. | Wait and do not use stale power. |
 | `unavailable` | none or last known | The integration cannot fetch usable data or needs reauthentication. | Treat the source as offline and check logs or repairs. |
+
+The last meter sample sensor shows the Perific packet timestamp used for these
+decisions. If the grid power sensor is `unknown`, compare the status sensor and
+last meter sample timestamp before changing consumers such as evcc.
 
 The grid power sensor also keeps these diagnostic attributes for compatibility
 and support:
@@ -111,8 +116,8 @@ If setup fails:
 If the sensor is `unknown`:
 
 - Check `sensor.perific_meter_grid_power_status`.
-- Check `source_timestamp` when the status is `stale_phase_minute` to see the
-  rejected packet timestamp.
+- Check `sensor.perific_meter_last_meter_sample` to see the latest Perific
+  packet timestamp known to Home Assistant.
 - Wait for the Perific meter to report fresh minute data.
 - Improve meter Wi-Fi if Perific reporting is slow or intermittent.
 
@@ -167,7 +172,7 @@ HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
   uv run python scripts/smoke-ha-sensor.py --samples 11 --interval 60
 ```
 
-For evcc readiness, require at least one numeric `ready` sample:
+For evcc readiness, require the final observed sample to be numeric `ready`:
 
 ```sh
 HA_URL="http://homeassistant.local:8123" HA_TOKEN="..." \
