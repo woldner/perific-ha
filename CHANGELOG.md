@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.4.2 (2026-06-24)
+
+### Bug Fixes
+
+- **meter**: Persist repeated timestamp baselines
+  ([`0671fb5`](https://github.com/woldner/perific-ha/commit/0671fb51c140cf40826f8fc1b3b750c467307b59))
+
+- **meter**: Withhold repeated source timestamps
+  ([`b2a9db4`](https://github.com/woldner/perific-ha/commit/b2a9db4a0fdbaeb426a329af2f29b5c4f3e4ed68))
+
+### Refactoring
+
+- **store**: Persist grid power samples only
+  ([`c4dc180`](https://github.com/woldner/perific-ha/commit/c4dc18092d5981ed54936df2685811875d2bf41b))
+
+
 ## v0.4.1 (2026-06-23)
 
 ### Bug Fixes
