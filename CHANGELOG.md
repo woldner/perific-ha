@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v0.4.3 (2026-06-24)
+
+### Bug Fixes
+
+- **release**: Publish current integration payload
+  ([`42d47d7`](https://github.com/woldner/perific-ha/commit/42d47d711e05781da08fde4192b327d05c89c44e))
+
+### Continuous Integration
+
+- **deps**: Bump actions/checkout from 6 to 7 in the github-actions group
+  ([#1](https://github.com/woldner/perific-ha/pull/1),
+  [`f3adeff`](https://github.com/woldner/perific-ha/commit/f3adefff0633c663f8121e836c533ffb93e03741))
+
+### Documentation
+
+- **release**: Clarify semantic-release bump commits
+  ([`a572cca`](https://github.com/woldner/perific-ha/commit/a572cca61a6a8932921db55baf71c9631b6f2b20))
+
+### Refactoring
+
+- **sensor**: Remove duplicate meter fact attributes
+  ([`2de396c`](https://github.com/woldner/perific-ha/commit/2de396cfe06ba78f560e63a8826c3c77904252e1))
+
+
 ## v0.4.2 (2026-06-24)
 
 ### Bug Fixes
