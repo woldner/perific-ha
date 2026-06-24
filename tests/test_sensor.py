@@ -49,10 +49,6 @@ def test_grid_power_sensor_reports_ready_watts() -> None:
 
     assert sensor.available
     assert sensor.native_value == pytest.approx(GRID_POWER_W)
-    assert sensor.extra_state_attributes == {
-        "grid_power_status": GRID_POWER_STATUS_READY,
-        "source_timestamp": SOURCE_TIMESTAMP,
-    }
 
 
 def test_grid_power_sensor_keeps_baseline_wait_available_without_value() -> None:
@@ -67,10 +63,6 @@ def test_grid_power_sensor_keeps_baseline_wait_available_without_value() -> None
 
     assert sensor.available
     assert sensor.native_value is None
-    assert sensor.extra_state_attributes == {
-        "grid_power_status": GRID_POWER_STATUS_BASELINE_REQUIRED,
-        "source_timestamp": 1782120000000,
-    }
 
 
 def test_grid_power_sensor_keeps_stale_minute_available_without_value() -> None:
@@ -85,10 +77,21 @@ def test_grid_power_sensor_keeps_stale_minute_available_without_value() -> None:
 
     assert sensor.available
     assert sensor.native_value is None
-    assert sensor.extra_state_attributes == {
-        "grid_power_status": GRID_POWER_STATUS_STALE_PHASE_MINUTE,
-        "source_timestamp": STALE_SOURCE_TIMESTAMP,
-    }
+
+
+def test_grid_power_sensor_does_not_duplicate_meter_fact_attributes() -> None:
+    sensor = _sensor(
+        data=PerificMeterData(
+            item_id="meter-a",
+            grid_power_w=GRID_POWER_W,
+            timestamp=SOURCE_TIMESTAMP,
+            status=GRID_POWER_STATUS_READY,
+        ),
+    )
+    attributes = sensor.extra_state_attributes or {}
+
+    assert "grid_power_status" not in attributes
+    assert "source_timestamp" not in attributes
 
 
 def test_grid_power_sensor_unavailable_when_coordinator_update_failed() -> None:

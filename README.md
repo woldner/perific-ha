@@ -107,13 +107,6 @@ power sensor currently has numeric watts with status `ready`; it is `off` while
 the integration is waiting for safe meter data, and unavailable if Home
 Assistant cannot fetch Perific data.
 
-The grid power sensor also keeps these diagnostic attributes for compatibility
-and support:
-
-- `grid_power_status`
-- `source_timestamp`, which is also set for rejected stale packets when Perific
-  provides a packet timestamp
-
 ## Troubleshooting
 
 If setup fails:

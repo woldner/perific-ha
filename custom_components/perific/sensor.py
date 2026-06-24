@@ -20,8 +20,6 @@ from .const import (
 from .entity import PerificEntity
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -67,21 +65,7 @@ class PerificSensor(
     PerificEntity,
     SensorEntity,
 ):
-    def __init__(
-        self,
-        coordinator: PerificDataUpdateCoordinator,
-        entry: ConfigEntry,
-        description: SensorEntityDescription,
-    ) -> None:
-        super().__init__(coordinator, entry, description)
-
-    @property
-    def extra_state_attributes(self) -> Mapping[str, str | int | None] | None:
-        if self.coordinator.data is None:
-            return None
-        return {
-            "source_timestamp": self.coordinator.data.timestamp,
-        }
+    pass
 
 
 class PerificGridPowerSensor(PerificSensor):
@@ -90,15 +74,6 @@ class PerificGridPowerSensor(PerificSensor):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.grid_power_w
-
-    @property
-    def extra_state_attributes(self) -> Mapping[str, str | int | None] | None:
-        if self.coordinator.data is None:
-            return None
-        return {
-            **(super().extra_state_attributes or {}),
-            "grid_power_status": self.coordinator.data.status,
-        }
 
 
 class PerificGridPowerStatusSensor(PerificSensor):
