@@ -17,6 +17,12 @@ no-op command before changing GitHub release state.
 Pushes to `main` run validation and create a new GitHub Release when
 Conventional Commits require a SemVer bump.
 
+Semantic Release publishes only commits that require a version bump. Before
+expecting a release from `refactor`, `docs`, or `chore` commits, run the no-op
+release command. If it reports no release and the current payload must be
+published, use an explicit empty `fix(release): ...` commit. Do not create
+manual release tags during normal development.
+
 Before changing release automation, run:
 
 ```sh
