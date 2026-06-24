@@ -25,7 +25,6 @@ from custom_components.perific.coordinator import (
     PerificDataUpdateCoordinator,
 )
 from custom_components.perific.meter import PerificGridPowerAccumulator
-from custom_components.perific.store import PerificStoredGridPowerState
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -59,7 +58,6 @@ class FakePerificClient:
 class FakeSampleStore:
     def __init__(self) -> None:
         self.saved_samples: list[tuple[str, PerificMeterSample]] = []
-        self.saved_states: list[tuple[str, PerificStoredGridPowerState]] = []
 
     async def async_save_sample(
         self,
@@ -67,13 +65,6 @@ class FakeSampleStore:
         sample: PerificMeterSample,
     ) -> None:
         self.saved_samples.append((entry_id, sample))
-
-    async def async_save_state(
-        self,
-        entry_id: str,
-        state: PerificStoredGridPowerState,
-    ) -> None:
-        self.saved_states.append((entry_id, state))
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,9 +104,7 @@ async def test_coordinator_sets_unknown_data_without_grid_power_delta(
     assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert coordinator.data.timestamp == sample.timestamp
     assert accumulator.last_sample == sample
-    assert sample_store.saved_states == [
-        (entry.entry_id, PerificStoredGridPowerState(sample=sample, data=None)),
-    ]
+    assert sample_store.saved_samples == [(entry.entry_id, sample)]
 
 
 async def test_coordinator_uses_baseline_from_previous_run(
@@ -149,14 +138,13 @@ async def test_coordinator_uses_baseline_from_previous_run(
     assert coordinator.data.grid_power_w == pytest.approx(10020.0)
     assert coordinator.data.status == GRID_POWER_STATUS_READY
     assert client.requested_item_ids == ["meter-a"]
-    assert len(sample_store.saved_states) == 1
-    saved_entry_id, saved_state = sample_store.saved_states[0]
+    assert len(sample_store.saved_samples) == 1
+    saved_entry_id, saved_sample = sample_store.saved_samples[0]
     assert saved_entry_id == entry.entry_id
-    assert saved_state.sample == current_sample
-    assert saved_state.data is None
+    assert saved_sample == current_sample
 
 
-async def test_coordinator_withholds_repeated_sample_with_stored_data(
+async def test_coordinator_withholds_repeated_sample_with_ready_data(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)
@@ -164,13 +152,13 @@ async def test_coordinator_withholds_repeated_sample_with_stored_data(
         import_energy_kwh=1000.167,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
-    stored_data = PerificMeterData(
+    ready_data = PerificMeterData(
         item_id="meter-a",
         grid_power_w=10020.0,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
     accumulator = PerificGridPowerAccumulator(
-        last_data=stored_data,
+        last_data=ready_data,
         last_sample=stored_sample,
     )
     client = FakePerificClient([stored_sample])
@@ -192,12 +180,7 @@ async def test_coordinator_withholds_repeated_sample_with_stored_data(
     assert coordinator.data.grid_power_w is None
     assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert accumulator.last_data is None
-    assert sample_store.saved_states == [
-        (
-            entry.entry_id,
-            PerificStoredGridPowerState(sample=stored_sample, data=None),
-        ),
-    ]
+    assert sample_store.saved_samples == [(entry.entry_id, stored_sample)]
 
 
 async def test_coordinator_persists_changed_repeated_sample_without_cached_data(
@@ -235,12 +218,7 @@ async def test_coordinator_persists_changed_repeated_sample_without_cached_data(
     assert coordinator.data.grid_power_w is None
     assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert accumulator.last_sample == repeated_sample
-    assert sample_store.saved_states == [
-        (
-            entry.entry_id,
-            PerificStoredGridPowerState(sample=repeated_sample, data=None),
-        ),
-    ]
+    assert sample_store.saved_samples == [(entry.entry_id, repeated_sample)]
 
 
 async def test_coordinator_recovers_from_stale_packet_with_new_baseline(
@@ -251,7 +229,7 @@ async def test_coordinator_recovers_from_stale_packet_with_new_baseline(
         import_energy_kwh=1000.100,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
-    stored_data = PerificMeterData(
+    ready_data = PerificMeterData(
         item_id="meter-a",
         grid_power_w=10020.0,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
@@ -265,7 +243,7 @@ async def test_coordinator_recovers_from_stale_packet_with_new_baseline(
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
     accumulator = PerificGridPowerAccumulator(
-        last_data=stored_data,
+        last_data=ready_data,
         last_sample=stored_sample,
     )
     client = FakePerificClient(
@@ -309,15 +287,9 @@ async def test_coordinator_recovers_from_stale_packet_with_new_baseline(
     assert coordinator.data.timestamp == recovery_sample.timestamp
     assert accumulator.last_sample == recovery_sample
     assert accumulator.last_data is None
-    assert sample_store.saved_states == [
-        (
-            entry.entry_id,
-            PerificStoredGridPowerState(sample=stored_sample, data=None),
-        ),
-        (
-            entry.entry_id,
-            PerificStoredGridPowerState(sample=recovery_sample, data=None),
-        ),
+    assert sample_store.saved_samples == [
+        (entry.entry_id, stored_sample),
+        (entry.entry_id, recovery_sample),
     ]
 
 
@@ -352,12 +324,7 @@ async def test_coordinator_resets_expired_baseline_without_setup_failure(
     assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert coordinator.data.timestamp == current_sample.timestamp
     assert accumulator.last_sample == current_sample
-    assert sample_store.saved_states == [
-        (
-            entry.entry_id,
-            PerificStoredGridPowerState(sample=current_sample, data=None),
-        ),
-    ]
+    assert sample_store.saved_samples == [(entry.entry_id, current_sample)]
 
 
 async def test_coordinator_loads_with_stale_packet_error_as_unknown_data(
@@ -391,7 +358,7 @@ async def test_coordinator_loads_with_stale_packet_error_as_unknown_data(
     assert coordinator.data.status == GRID_POWER_STATUS_STALE_PHASE_MINUTE
     assert coordinator.data.timestamp == STALE_SAMPLE_TIMESTAMP
     assert accumulator.last_sample is None
-    assert sample_store.saved_states == []
+    assert sample_store.saved_samples == []
 
 
 async def test_coordinator_auth_failure_starts_home_assistant_reauth(
@@ -421,7 +388,7 @@ async def test_coordinator_auth_failure_starts_home_assistant_reauth(
     assert active_reauth_flows[0]["step_id"] == "reauth_confirm"
 
 
-async def test_coordinator_clears_stored_data_on_stale_packet_error(
+async def test_coordinator_clears_ready_data_on_stale_packet_error(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)
@@ -429,7 +396,7 @@ async def test_coordinator_clears_stored_data_on_stale_packet_error(
         import_energy_kwh=1000.167,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
-    stored_data = PerificMeterData(
+    ready_data = PerificMeterData(
         item_id="meter-a",
         grid_power_w=10020.0,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
@@ -440,7 +407,7 @@ async def test_coordinator_clears_stored_data_on_stale_packet_error(
     )
     client = FakePerificClient([stale_error])
     accumulator = PerificGridPowerAccumulator(
-        last_data=stored_data,
+        last_data=ready_data,
         last_sample=stored_sample,
     )
     sample_store = FakeSampleStore()
@@ -458,12 +425,7 @@ async def test_coordinator_clears_stored_data_on_stale_packet_error(
     assert coordinator.data.timestamp == STALE_SAMPLE_TIMESTAMP
     assert accumulator.last_sample == stored_sample
     assert accumulator.last_data is None
-    assert sample_store.saved_states == [
-        (
-            entry.entry_id,
-            PerificStoredGridPowerState(sample=stored_sample, data=None),
-        ),
-    ]
+    assert sample_store.saved_samples == [(entry.entry_id, stored_sample)]
 
 
 async def test_coordinator_does_not_persist_rejected_out_of_order_sample(
@@ -494,7 +456,7 @@ async def test_coordinator_does_not_persist_rejected_out_of_order_sample(
 
     assert not coordinator.last_update_success
     assert accumulator.last_sample == stored_sample
-    assert sample_store.saved_states == []
+    assert sample_store.saved_samples == []
 
 
 async def test_coordinator_does_not_persist_single_counter_reset_candidate(
@@ -528,7 +490,7 @@ async def test_coordinator_does_not_persist_single_counter_reset_candidate(
     assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
     assert accumulator.last_sample == stored_sample
     assert accumulator.counter_reset_candidate == reset_candidate
-    assert sample_store.saved_states == []
+    assert sample_store.saved_samples == []
 
 
 async def test_coordinator_diagnostics_explain_unknown_grid_power(

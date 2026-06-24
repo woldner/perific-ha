@@ -42,12 +42,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     domain_data = get_domain_data(hass)
     sample_store = domain_data.sample_store
-    stored_state = await sample_store.async_load_state(entry.entry_id)
+    stored_sample = await sample_store.async_load_sample(entry.entry_id)
     grid_power_accumulator = domain_data.grid_power_accumulators.setdefault(
         entry.entry_id,
         PerificGridPowerAccumulator(
             last_data=None,
-            last_sample=stored_state.sample if stored_state is not None else None,
+            last_sample=stored_sample,
         ),
     )
     coordinator = PerificDataUpdateCoordinator(

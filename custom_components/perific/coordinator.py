@@ -20,7 +20,6 @@ from .api import (
     PerificMeterSample,
 )
 from .const import DOMAIN, LOGGER, SCAN_INTERVAL
-from .store import PerificStoredGridPowerState
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -98,12 +97,9 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
         previous_data = accumulator.last_data
         accumulator.last_data = None
         if accumulator.last_sample is not None and previous_data is not None:
-            await self._runtime.sample_store.async_save_state(
+            await self._runtime.sample_store.async_save_sample(
                 self.config_entry.entry_id,
-                PerificStoredGridPowerState(
-                    sample=accumulator.last_sample,
-                    data=None,
-                ),
+                accumulator.last_sample,
             )
         return PerificMeterData(
             item_id=self._runtime.item_id,
@@ -147,9 +143,9 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
             if last_sample == sample and (
                 last_sample != previous_sample or last_data != previous_data
             ):
-                await self._runtime.sample_store.async_save_state(
+                await self._runtime.sample_store.async_save_sample(
                     self.config_entry.entry_id,
-                    PerificStoredGridPowerState(sample=sample, data=None),
+                    sample,
                 )
 
 

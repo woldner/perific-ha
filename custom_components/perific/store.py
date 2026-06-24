@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, NotRequired, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from homeassistant.helpers.storage import Store
 
@@ -13,10 +12,16 @@ from .const import DOMAIN
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-    from .api import PerificMeterData
-
 STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}.grid_power_samples"
+STORED_METER_SAMPLE_KEYS = frozenset(
+    {
+        "item_id",
+        "import_energy_kwh",
+        "export_energy_kwh",
+        "timestamp",
+    },
+)
 
 
 class StoredMeterSample(TypedDict):
@@ -24,13 +29,6 @@ class StoredMeterSample(TypedDict):
     import_energy_kwh: float
     export_energy_kwh: float
     timestamp: int
-    grid_power_w: NotRequired[float | None]
-
-
-@dataclass(frozen=True, slots=True)
-class PerificStoredGridPowerState:
-    sample: PerificMeterSample
-    data: PerificMeterData | None
 
 
 class PerificGridPowerSampleStore:
@@ -45,40 +43,21 @@ class PerificGridPowerSampleStore:
         self._data_lock = asyncio.Lock()
 
     async def async_load_sample(self, entry_id: str) -> PerificMeterSample | None:
-        stored_state = await self.async_load_state(entry_id)
-        if stored_state is None:
-            return None
-        return stored_state.sample
-
-    async def async_load_state(
-        self,
-        entry_id: str,
-    ) -> PerificStoredGridPowerState | None:
         async with self._data_lock:
             data = await self._async_load_data()
             stored_sample = data.get(entry_id)
         if stored_sample is None:
             return None
-        return _state_from_storage(stored_sample)
+        return _sample_from_storage(stored_sample)
 
     async def async_save_sample(
         self,
         entry_id: str,
         sample: PerificMeterSample,
     ) -> None:
-        await self.async_save_state(
-            entry_id,
-            PerificStoredGridPowerState(sample=sample, data=None),
-        )
-
-    async def async_save_state(
-        self,
-        entry_id: str,
-        state: PerificStoredGridPowerState,
-    ) -> None:
         async with self._data_lock:
             data = await self._async_load_data()
-            data[entry_id] = _state_to_storage(state)
+            data[entry_id] = _sample_to_storage(sample)
             await self._store.async_save(data)
 
     async def async_remove_sample(self, entry_id: str) -> None:
@@ -102,13 +81,13 @@ def _sample_to_storage(sample: PerificMeterSample) -> StoredMeterSample:
     }
 
 
-def _state_to_storage(state: PerificStoredGridPowerState) -> StoredMeterSample:
-    return _sample_to_storage(state.sample)
-
-
 def _sample_from_storage(
-    stored_sample: Mapping[str, object],
+    stored_sample: object,
 ) -> PerificMeterSample | None:
+    if not isinstance(stored_sample, Mapping):
+        return None
+    if frozenset(stored_sample) != STORED_METER_SAMPLE_KEYS:
+        return None
     item_id = stored_sample.get("item_id")
     import_energy_kwh = stored_sample.get("import_energy_kwh")
     export_energy_kwh = stored_sample.get("export_energy_kwh")
@@ -125,17 +104,6 @@ def _sample_from_storage(
         export_energy_kwh=float(export_energy_kwh),
         timestamp=timestamp,
     )
-
-
-def _state_from_storage(
-    stored_sample: object,
-) -> PerificStoredGridPowerState | None:
-    if not isinstance(stored_sample, Mapping):
-        return None
-    sample = _sample_from_storage(stored_sample)
-    if sample is None:
-        return None
-    return PerificStoredGridPowerState(sample=sample, data=None)
 
 
 def _is_number(value: object) -> bool:

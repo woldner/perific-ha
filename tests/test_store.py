@@ -4,10 +4,9 @@ import asyncio
 from typing import TYPE_CHECKING, ClassVar
 
 from custom_components.perific import store as store_module
-from custom_components.perific.api import PerificMeterData, PerificMeterSample
+from custom_components.perific.api import PerificMeterSample
 from custom_components.perific.store import (
     PerificGridPowerSampleStore,
-    PerificStoredGridPowerState,
     StoredMeterSample,
 )
 
@@ -33,33 +32,7 @@ async def test_grid_power_sample_store_round_trips_sample(
     )
 
 
-async def test_grid_power_sample_store_does_not_round_trip_cached_watts(
-    hass: HomeAssistant,
-) -> None:
-    sample = PerificMeterSample(
-        item_id="meter-a",
-        import_energy_kwh=1000.167,
-        export_energy_kwh=10.0,
-        timestamp=1782120060000,
-    )
-    data = PerificMeterData(
-        item_id="meter-a",
-        grid_power_w=10020.0,
-        timestamp=1782120060000,
-    )
-    state = PerificStoredGridPowerState(sample=sample, data=data)
-
-    await PerificGridPowerSampleStore(hass).async_save_state("entry-1", state)
-
-    assert await PerificGridPowerSampleStore(
-        hass,
-    ).async_load_state("entry-1") == PerificStoredGridPowerState(
-        sample=sample,
-        data=None,
-    )
-
-
-async def test_grid_power_sample_store_ignores_legacy_cached_watts(
+async def test_grid_power_sample_store_rejects_extra_storage_fields(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -74,17 +47,7 @@ async def test_grid_power_sample_store_ignores_legacy_cached_watts(
         },
     }
 
-    assert await PerificGridPowerSampleStore(
-        hass,
-    ).async_load_state("entry-1") == PerificStoredGridPowerState(
-        sample=PerificMeterSample(
-            item_id="meter-a",
-            import_energy_kwh=1000.167,
-            export_energy_kwh=10.0,
-            timestamp=1782120060000,
-        ),
-        data=None,
-    )
+    assert await PerificGridPowerSampleStore(hass).async_load_sample("entry-1") is None
 
 
 async def test_grid_power_sample_store_removes_sample(
@@ -136,7 +99,7 @@ async def test_grid_power_sample_store_ignores_malformed_entry(
     monkeypatch.setattr(store_module, "Store", StaticStorage)
     StaticStorage.initial_data = {"entry-1": "not-a-sample"}
 
-    assert await PerificGridPowerSampleStore(hass).async_load_state("entry-1") is None
+    assert await PerificGridPowerSampleStore(hass).async_load_sample("entry-1") is None
 
 
 async def test_grid_power_sample_store_serializes_concurrent_initial_saves(
