@@ -5,13 +5,13 @@ import pytest
 from custom_components.perific.api import (
     PerificAuth,
     PerificDataError,
+    PerificMeterData,
     PerificMeterSample,
     parse_auth_response,
     parse_latest_meter_sample,
     parse_latest_meter_samples,
 )
 from custom_components.perific.meter import (
-    MAX_GRID_POWER_STATE_AGE_SECONDS,
     PerificGridPowerAccumulator,
     calculate_grid_power_w,
 )
@@ -398,7 +398,7 @@ def test_grid_power_accumulator_uses_next_newer_sample() -> None:
     assert data.timestamp == SECOND_SAMPLE_TIMESTAMP
 
 
-def test_grid_power_accumulator_reuses_last_data_for_same_timestamp() -> None:
+def test_grid_power_accumulator_withholds_same_timestamp_after_ready_data() -> None:
     accumulator = PerificGridPowerAccumulator()
 
     assert (
@@ -417,45 +417,32 @@ def test_grid_power_accumulator_reuses_last_data_for_same_timestamp() -> None:
         ),
     )
 
-    assert (
-        accumulator.update(
-            _meter_sample(
-                import_energy_kwh=1000.167,
-                timestamp=SECOND_SAMPLE_TIMESTAMP,
-            ),
-        )
-        == data
-    )
-
-
-def test_grid_power_accumulator_drops_reused_data_after_freshness_window() -> None:
-    accumulator = PerificGridPowerAccumulator()
-    sample = _meter_sample(
-        import_energy_kwh=1000.000,
+    assert data is not None
+    repeated_sample = _meter_sample(
+        import_energy_kwh=1000.167,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
 
-    assert (
-        accumulator.update(
-            _meter_sample(
-                import_energy_kwh=999.900,
-                timestamp=1782120000000,
-            ),
-        )
-        is None
-    )
-    data = accumulator.update(sample)
-    assert data is not None
+    assert accumulator.update(repeated_sample) is None
+    assert accumulator.last_sample == repeated_sample
+    assert accumulator.last_data is None
 
-    assert (
-        accumulator.update(
-            sample,
-            now_ms=SECOND_SAMPLE_TIMESTAMP
-            + ((MAX_GRID_POWER_STATE_AGE_SECONDS + 1) * 1000),
-        )
-        is None
+
+def test_grid_power_accumulator_clears_seeded_data_for_same_timestamp() -> None:
+    sample = _meter_sample(
+        import_energy_kwh=1000.167,
+        timestamp=SECOND_SAMPLE_TIMESTAMP,
+    )
+    accumulator = PerificGridPowerAccumulator(
+        last_data=PerificMeterData(
+            item_id=sample.item_id,
+            grid_power_w=10020.0,
+            timestamp=sample.timestamp,
+        ),
+        last_sample=sample,
     )
 
+    assert accumulator.update(sample) is None
     assert accumulator.last_sample == sample
     assert accumulator.last_data is None
 

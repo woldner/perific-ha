@@ -144,10 +144,7 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
         )
         previous_data = self._runtime.grid_power_accumulator.last_data
         try:
-            return self._runtime.grid_power_accumulator.update(
-                sample,
-                now_ms=self._runtime.now_ms(),
-            )
+            return self._runtime.grid_power_accumulator.update(sample)
         finally:
             last_sample = self._runtime.grid_power_accumulator.last_sample
             last_data = self._runtime.grid_power_accumulator.last_data
@@ -156,7 +153,7 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
             ):
                 await self._runtime.sample_store.async_save_state(
                     self.config_entry.entry_id,
-                    PerificStoredGridPowerState(sample=sample, data=last_data),
+                    PerificStoredGridPowerState(sample=sample, data=None),
                 )
 
 

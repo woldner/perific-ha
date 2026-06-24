@@ -33,7 +33,7 @@ async def test_grid_power_sample_store_round_trips_sample(
     )
 
 
-async def test_grid_power_sample_store_round_trips_state(
+async def test_grid_power_sample_store_does_not_round_trip_cached_watts(
     hass: HomeAssistant,
 ) -> None:
     sample = PerificMeterSample(
@@ -51,7 +51,40 @@ async def test_grid_power_sample_store_round_trips_state(
 
     await PerificGridPowerSampleStore(hass).async_save_state("entry-1", state)
 
-    assert await PerificGridPowerSampleStore(hass).async_load_state("entry-1") == state
+    assert await PerificGridPowerSampleStore(
+        hass,
+    ).async_load_state("entry-1") == PerificStoredGridPowerState(
+        sample=sample,
+        data=None,
+    )
+
+
+async def test_grid_power_sample_store_ignores_legacy_cached_watts(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(store_module, "Store", StaticStorage)
+    StaticStorage.initial_data = {
+        "entry-1": {
+            "item_id": "meter-a",
+            "import_energy_kwh": 1000.167,
+            "export_energy_kwh": 10.0,
+            "timestamp": 1782120060000,
+            "grid_power_w": 10020.0,
+        },
+    }
+
+    assert await PerificGridPowerSampleStore(
+        hass,
+    ).async_load_state("entry-1") == PerificStoredGridPowerState(
+        sample=PerificMeterSample(
+            item_id="meter-a",
+            import_energy_kwh=1000.167,
+            export_energy_kwh=10.0,
+            timestamp=1782120060000,
+        ),
+        data=None,
+    )
 
 
 async def test_grid_power_sample_store_removes_sample(

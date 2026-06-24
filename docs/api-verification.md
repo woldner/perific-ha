@@ -78,7 +78,8 @@ power. The runtime currently treats `PhaseMinute` packets older than 5 minutes
 as stale, exposes the rejected packet timestamp when available, and resets the
 delta baseline after overlong sample gaps. Counter decreases start a new
 candidate baseline and require another monotonic sample before publishing
-power.
+power. Repeated source timestamps with no new `PhaseMinute` sample are withheld
+rather than republished as cached watts.
 `PhaseRealTime.data.hiavg[]` and `huavg[]` provide current and voltage
 telemetry, but they do not provide net import/export direction and are not the
 primary grid-power source.
@@ -93,7 +94,7 @@ The first implementation slice owns:
   identifiers, units, and staleness semantics.
 
 It now also owns the first Home Assistant config-flow implementation, native
-token exchange, reauth path, and one read-only grid power sensor.
+token exchange, reauth path, and read-only grid power entities.
 
 It does not own:
 

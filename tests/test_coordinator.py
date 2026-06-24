@@ -24,10 +24,7 @@ from custom_components.perific.coordinator import (
     PerificCoordinatorRuntime,
     PerificDataUpdateCoordinator,
 )
-from custom_components.perific.meter import (
-    MAX_GRID_POWER_STATE_AGE_SECONDS,
-    PerificGridPowerAccumulator,
-)
+from custom_components.perific.meter import PerificGridPowerAccumulator
 from custom_components.perific.store import PerificStoredGridPowerState
 
 if TYPE_CHECKING:
@@ -156,11 +153,10 @@ async def test_coordinator_uses_baseline_from_previous_run(
     saved_entry_id, saved_state = sample_store.saved_states[0]
     assert saved_entry_id == entry.entry_id
     assert saved_state.sample == current_sample
-    assert saved_state.data is not None
-    assert saved_state.data.grid_power_w == pytest.approx(10020.0)
+    assert saved_state.data is None
 
 
-async def test_coordinator_reuses_fresh_stored_data_for_repeated_sample(
+async def test_coordinator_withholds_repeated_sample_with_stored_data(
     hass: HomeAssistant,
 ) -> None:
     entry = _mock_entry(hass)
@@ -193,44 +189,9 @@ async def test_coordinator_reuses_fresh_stored_data_for_repeated_sample(
     await coordinator.async_refresh()
 
     assert coordinator.last_update_success
-    assert coordinator.data == stored_data
-    assert sample_store.saved_states == []
-
-
-async def test_coordinator_clears_stale_stored_data_for_repeated_sample(
-    hass: HomeAssistant,
-) -> None:
-    entry = _mock_entry(hass)
-    stored_sample = _meter_sample(
-        import_energy_kwh=1000.167,
-        timestamp=SECOND_SAMPLE_TIMESTAMP,
-    )
-    accumulator = PerificGridPowerAccumulator(
-        last_data=PerificMeterData(
-            item_id="meter-a",
-            grid_power_w=10020.0,
-            timestamp=SECOND_SAMPLE_TIMESTAMP,
-        ),
-        last_sample=stored_sample,
-    )
-    client = FakePerificClient([stored_sample])
-    sample_store = FakeSampleStore()
-    coordinator = _coordinator(
-        hass,
-        entry,
-        CoordinatorTestRuntime(
-            client,
-            accumulator,
-            sample_store,
-            now_ms=SECOND_SAMPLE_TIMESTAMP
-            + ((MAX_GRID_POWER_STATE_AGE_SECONDS + 1) * 1000),
-        ),
-    )
-
-    await coordinator.async_refresh()
-
-    assert coordinator.last_update_success
     assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
+    assert accumulator.last_data is None
     assert sample_store.saved_states == [
         (
             entry.entry_id,

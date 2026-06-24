@@ -46,7 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     grid_power_accumulator = domain_data.grid_power_accumulators.setdefault(
         entry.entry_id,
         PerificGridPowerAccumulator(
-            last_data=stored_state.data if stored_state is not None else None,
+            last_data=None,
             last_sample=stored_state.sample if stored_state is not None else None,
         ),
     )

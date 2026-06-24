@@ -10,8 +10,8 @@ endorsed by, or supported by Perific or Enegic.
 - A Home Assistant UI setup flow for Perific accounts.
 - Native Perific token authentication stored in the Home Assistant config entry.
 - Reauthentication through Home Assistant's standard reauth flow.
-- One grid power sensor and one grid power status sensor per selected Perific
-  meter.
+- One grid power sensor, one grid power status sensor, one last-sample sensor,
+  and one readiness binary sensor per selected Perific meter.
 - Cloud polling through the Perific/Enegic API.
 
 The first supported entity is whole-home grid power in watts for local energy
@@ -61,7 +61,7 @@ Copy `custom_components/perific` into your Home Assistant
 
 If your account has multiple meters, run the add integration flow again and
 select another meter. Each selected meter gets its own Home Assistant config
-entry and grid power sensor.
+entry and grid power entities.
 
 Passwords are used only during setup or reauthentication. The integration stores
 the Perific token and non-secret account metadata in the Home Assistant config
@@ -81,6 +81,8 @@ The sensor reports net grid power in watts. It uses consecutive Perific
 `PhaseMinute` import/export counter samples. It does not publish a guessed or
 stale value when the required samples are missing or too old. Positive watts
 mean net import from the grid. Negative watts mean net export to the grid.
+Repeated Perific source timestamps are treated as waiting for a newer sample;
+the integration does not carry a prior watt value forward.
 
 If the integration is working but cannot safely calculate watts yet, the sensor
 state is `unknown` and the status sensor explains why. If the integration cannot

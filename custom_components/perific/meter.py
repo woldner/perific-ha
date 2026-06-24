@@ -13,7 +13,6 @@ from .api import (
 MILLISECONDS_PER_HOUR = 60 * 60 * MILLISECONDS_PER_SECOND
 WATT_HOURS_PER_KILOWATT_HOUR = 1000
 MAX_POWER_DELTA_SECONDS = MAX_PHASE_MINUTE_PACKET_AGE_SECONDS
-MAX_GRID_POWER_STATE_AGE_SECONDS = 300
 FIELD_COUNTER_DECREASED = "LatestPackets.PhaseMinute.data"
 FIELD_SAMPLE_WINDOW_EXCEEDED = "LatestPackets.PhaseMinute.ts.elapsed"
 
@@ -27,14 +26,13 @@ class PerificGridPowerAccumulator:
     def update(
         self,
         sample: PerificMeterSample,
-        *,
-        now_ms: int | None = None,
     ) -> PerificMeterData | None:
         if self.last_sample is None:
             return self._reset_baseline(sample)
 
         if sample.timestamp == self.last_sample.timestamp:
-            return self._reuse_last_data(sample, now_ms=now_ms)
+            self.last_data = None
+            return None
 
         try:
             return self._publish_delta(self.last_sample, sample)
@@ -86,23 +84,6 @@ class PerificGridPowerAccumulator:
         self.last_sample = sample
         self.last_data = None
 
-    def _reuse_last_data(
-        self,
-        sample: PerificMeterSample,
-        *,
-        now_ms: int | None,
-    ) -> PerificMeterData | None:
-        if self.last_data is None:
-            return None
-        if _is_sample_too_old(
-            sample.timestamp,
-            now_ms=now_ms,
-            max_age_seconds=MAX_GRID_POWER_STATE_AGE_SECONDS,
-        ):
-            self.last_data = None
-            return None
-        return self.last_data
-
 
 def calculate_grid_power_w(
     previous: PerificMeterSample,
@@ -135,14 +116,3 @@ def calculate_grid_power_w(
         * MILLISECONDS_PER_HOUR
         / elapsed_ms
     )
-
-
-def _is_sample_too_old(
-    timestamp_ms: int,
-    *,
-    now_ms: int | None,
-    max_age_seconds: int,
-) -> bool:
-    if now_ms is None:
-        return False
-    return now_ms - timestamp_ms > max_age_seconds * MILLISECONDS_PER_SECOND

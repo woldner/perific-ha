@@ -7,11 +7,13 @@ from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from homeassistant.helpers.storage import Store
 
-from .api import PerificMeterData, PerificMeterSample
+from .api import PerificMeterSample
 from .const import DOMAIN
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+
+    from .api import PerificMeterData
 
 STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}.grid_power_samples"
@@ -101,11 +103,7 @@ def _sample_to_storage(sample: PerificMeterSample) -> StoredMeterSample:
 
 
 def _state_to_storage(state: PerificStoredGridPowerState) -> StoredMeterSample:
-    stored_state = _sample_to_storage(state.sample)
-    stored_state["grid_power_w"] = (
-        state.data.grid_power_w if state.data is not None else None
-    )
-    return stored_state
+    return _sample_to_storage(state.sample)
 
 
 def _sample_from_storage(
@@ -137,18 +135,7 @@ def _state_from_storage(
     sample = _sample_from_storage(stored_sample)
     if sample is None:
         return None
-    grid_power_w = stored_sample.get("grid_power_w")
-    if grid_power_w is None:
-        data = None
-    elif _is_number(grid_power_w):
-        data = PerificMeterData(
-            item_id=sample.item_id,
-            grid_power_w=float(grid_power_w),
-            timestamp=sample.timestamp,
-        )
-    else:
-        return None
-    return PerificStoredGridPowerState(sample=sample, data=data)
+    return PerificStoredGridPowerState(sample=sample, data=None)
 
 
 def _is_number(value: object) -> bool:
