@@ -137,11 +137,7 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
         self,
         sample: PerificMeterSample,
     ) -> PerificMeterData | None:
-        previous_timestamp = (
-            self._runtime.grid_power_accumulator.last_sample.timestamp
-            if self._runtime.grid_power_accumulator.last_sample is not None
-            else None
-        )
+        previous_sample = self._runtime.grid_power_accumulator.last_sample
         previous_data = self._runtime.grid_power_accumulator.last_data
         try:
             return self._runtime.grid_power_accumulator.update(sample)
@@ -149,7 +145,7 @@ class PerificDataUpdateCoordinator(DataUpdateCoordinator[PerificMeterData]):
             last_sample = self._runtime.grid_power_accumulator.last_sample
             last_data = self._runtime.grid_power_accumulator.last_data
             if last_sample == sample and (
-                sample.timestamp != previous_timestamp or last_data != previous_data
+                last_sample != previous_sample or last_data != previous_data
             ):
                 await self._runtime.sample_store.async_save_state(
                     self.config_entry.entry_id,

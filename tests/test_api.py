@@ -398,7 +398,7 @@ def test_grid_power_accumulator_uses_next_newer_sample() -> None:
     assert data.timestamp == SECOND_SAMPLE_TIMESTAMP
 
 
-def test_grid_power_accumulator_withholds_same_timestamp_after_ready_data() -> None:
+def test_grid_power_accumulator_withholds_same_timestamp_and_updates_baseline() -> None:
     accumulator = PerificGridPowerAccumulator()
 
     assert (
@@ -419,13 +419,22 @@ def test_grid_power_accumulator_withholds_same_timestamp_after_ready_data() -> N
 
     assert data is not None
     repeated_sample = _meter_sample(
-        import_energy_kwh=1000.167,
+        import_energy_kwh=1000.200,
         timestamp=SECOND_SAMPLE_TIMESTAMP,
     )
 
     assert accumulator.update(repeated_sample) is None
     assert accumulator.last_sample == repeated_sample
     assert accumulator.last_data is None
+    next_data = accumulator.update(
+        _meter_sample(
+            import_energy_kwh=1000.367,
+            timestamp=SECOND_SAMPLE_TIMESTAMP + 60_000,
+        ),
+    )
+
+    assert next_data is not None
+    assert next_data.grid_power_w == pytest.approx(10020.0)
 
 
 def test_grid_power_accumulator_clears_seeded_data_for_same_timestamp() -> None:

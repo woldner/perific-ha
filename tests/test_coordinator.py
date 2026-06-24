@@ -200,6 +200,49 @@ async def test_coordinator_withholds_repeated_sample_with_stored_data(
     ]
 
 
+async def test_coordinator_persists_changed_repeated_sample_without_cached_data(
+    hass: HomeAssistant,
+) -> None:
+    entry = _mock_entry(hass)
+    stored_sample = _meter_sample(
+        import_energy_kwh=1000.167,
+        timestamp=SECOND_SAMPLE_TIMESTAMP,
+    )
+    repeated_sample = _meter_sample(
+        import_energy_kwh=1000.200,
+        timestamp=SECOND_SAMPLE_TIMESTAMP,
+    )
+    accumulator = PerificGridPowerAccumulator(
+        last_data=None,
+        last_sample=stored_sample,
+    )
+    client = FakePerificClient([repeated_sample])
+    sample_store = FakeSampleStore()
+    coordinator = _coordinator(
+        hass,
+        entry,
+        CoordinatorTestRuntime(
+            client,
+            accumulator,
+            sample_store,
+            now_ms=SECOND_SAMPLE_TIMESTAMP + 60_000,
+        ),
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success
+    assert coordinator.data.grid_power_w is None
+    assert coordinator.data.status == GRID_POWER_STATUS_BASELINE_REQUIRED
+    assert accumulator.last_sample == repeated_sample
+    assert sample_store.saved_states == [
+        (
+            entry.entry_id,
+            PerificStoredGridPowerState(sample=repeated_sample, data=None),
+        ),
+    ]
+
+
 async def test_coordinator_recovers_from_stale_packet_with_new_baseline(
     hass: HomeAssistant,
 ) -> None:

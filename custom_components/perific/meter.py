@@ -31,8 +31,7 @@ class PerificGridPowerAccumulator:
             return self._reset_baseline(sample)
 
         if sample.timestamp == self.last_sample.timestamp:
-            self.last_data = None
-            return None
+            return self._reset_baseline(sample)
 
         try:
             return self._publish_delta(self.last_sample, sample)
