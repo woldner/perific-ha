@@ -105,7 +105,7 @@ dev = [
     "homeassistant>=2026.5.3",
     "pre-commit>=4.6.0",
     "pytest-homeassistant-custom-component>=0.13.332",
-    "ruff>=0.15.18",
+    "ruff>=0.15.20",
 ]
 minimum-homeassistant = [
     { include-group = "test" },
